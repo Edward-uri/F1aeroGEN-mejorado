@@ -24,7 +24,5 @@ class Individual:
         }
 
     def __str__(self):
-        """
-        Formato de impresión para que sea fácil leerlo en la consola.
-        """
+        
         return f"Individuo(Fitness: {self.fitness:.4f} | Setup: {self.genes})"
