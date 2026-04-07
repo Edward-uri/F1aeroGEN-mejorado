@@ -1,0 +1,6 @@
+ID_Pista,Nombre_Pista,Longitud_Rectas_m,Longitud_Curvas_m,Radio_Curva_Promedio_m,Rugosidad_Asfalto,Densidad_Aire_kg_m3,Altitud_m
+1,Monza_Italia,4200,1593,120,0.85,1.205,162
+2,Monaco_GP,1200,2137,45,1.20,1.225,0
+3,Silverstone_UK,2800,3091,85,1.00,1.210,150
+4,Spa_Belgica,4500,2504,100,0.90,1.180,400
+5,CDMX_Mexico,2500,1804,70,0.95,0.980,2240
