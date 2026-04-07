@@ -1,0 +1,13 @@
+Kilometro,Compuesto_Neumatico,Coeficiente_Friccion_Mu,Temperatura_C
+0,Blando,1.75,95
+5,Blando,1.68,105
+10,Blando,1.45,115
+15,Blando,1.20,125
+0,Medio,1.60,90
+5,Medio,1.55,95
+10,Medio,1.48,102
+15,Medio,1.40,108
+0,Duro,1.45,85
+5,Duro,1.43,88
+10,Duro,1.40,92
+15,Duro,1.38,95
