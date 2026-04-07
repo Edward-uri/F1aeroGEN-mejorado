@@ -65,7 +65,6 @@ class FitnessEvaluator:
         return mu_real
 
     def calcular_vmax(self, genes):
-        """ FÓRMULA 1: Velocidad Punta (Mecánica de Fluidos) """
         cd_delantero, _ = self._obtener_coeficientes_aero(genes['aleron_delantero'])
         cd_trasero, _ = self._obtener_coeficientes_aero(genes['aleron_trasero'])
         
@@ -77,7 +76,6 @@ class FitnessEvaluator:
         return vmax
 
     def calcular_estabilidad(self, genes):
-        """ FÓRMULA 2: Estabilidad en Curva (Fuerzas G soportadas) """
         _, cl_delantero = self._obtener_coeficientes_aero(genes['aleron_delantero'])
         _, cl_trasero = self._obtener_coeficientes_aero(genes['aleron_trasero'])
         
@@ -94,7 +92,6 @@ class FitnessEvaluator:
         return e_curva
 
     def calcular_tiempo_vuelta(self, vmax, e_curva):
-        """ FÓRMULA 3: Tiempo de Vuelta (Cinemática) """
         # Tiempo en rectas (penalizando un 15% por el tiempo de aceleración)
         t_rectas = self.d_rectas / (vmax * 0.85)
         
@@ -108,9 +105,7 @@ class FitnessEvaluator:
         return t_lap
 
     def evaluate(self, individual):
-        """
-        Calcula el Fitness global del individuo y lo guarda en su objeto.
-        """
+
         genes = individual.genes
         
         # Si la altura del chasis es muy baja, ocurre el "efecto suelo" y el coche choca.
