@@ -1,9 +1,8 @@
 import csv
-import matplotlib.pyplot as plt
-
 
 from modulos.genetic_engine import GeneticEngine
 from modulos.fitness_evaluator import FitnessEvaluator
+from modulos.visualizer import Visualizer
 
 def metodo_inicializacion():
     P_INITIAL = 10
@@ -15,7 +14,7 @@ def metodo_inicializacion():
 
     # Instanciamos nuestros objetos
     motor = GeneticEngine(P_INITIAL, P_MAX, P_CRUZA, P_MUT_I, P_MUT_GEN)
-    evaluador = FitnessEvaluator(pista_id=1, coche_id=1, km_actual=0, compuesto_actual='Blando')
+    evaluador = FitnessEvaluator(pista_id=5, coche_id=1, km_actual=0, compuesto_actual='Blando')
     
     if not evaluador.csv_cargados:
         print("Deteniendo ejecución por falta de Base de Conocimiento.")
@@ -23,10 +22,13 @@ def metodo_inicializacion():
 
     motor.create_population()
 
-    # Listas para la gráfica
+    # Listas para las gráficas
     historial_mejor = []
     historial_peor = []
     historial_media = []
+    historial_vmax = []
+    historial_ecurva = []
+    historial_tlap = []
 
     # Preparar archivo CSV de reporte
     nombre_archivo = 'evolucion_setups_f1.csv'
@@ -68,6 +70,10 @@ def metodo_inicializacion():
         e_curva = evaluador.calcular_estabilidad(mejor_individuo.genes)
         tiempo_vuelta = evaluador.calcular_tiempo_vuelta(vmax, e_curva)
 
+        historial_vmax.append(vmax)
+        historial_ecurva.append(e_curva)
+        historial_tlap.append(tiempo_vuelta)
+
         # Guardar en CSV  
         with open(nombre_archivo, mode='a', newline='', encoding='utf-8') as file:
             writer = csv.writer(file)
@@ -77,25 +83,36 @@ def metodo_inicializacion():
         print(f"Generación {gen + 1}:")
         print(f"  Mejor Fitness:  {mejor_individuo.fitness:.4f}")
         print(f"  Mejor Tiempo:   {tiempo_vuelta:.2f} s")
-        print(f"  Velocidad Máx:  {(vmax * 3.6):.2f} km/h")  # m/s a km/h
+        print(f"  Velocidad Máx:  {(vmax * 3.6):.2f} km/h")
         print(f"  Estabilidad:    {e_curva:.2f} Gs")
         print(f"  Setup Óptimo:   {mejor_individuo.genes}")
         print("-" * 50)
 
-    # --- GRÁFICA DE RENDIMIENTO ---
-    plt.figure(figsize=(12, 6))
-    plt.plot(historial_mejor, label='Mejor Aptitud (Elitismo)', color='green', linewidth=2)
-    plt.plot(historial_media, label='Media de la Población', color='blue', alpha=0.6)
-    plt.plot(historial_peor, label='Peor Aptitud', color='red', linestyle='--')
-
-    plt.title('Evolución de Setups de F1 (Maximización de Rendimiento)')
-    plt.xlabel('Generaciones')
-    plt.ylabel('Puntuación de Aptitud (Velocidad & Estabilidad / Tiempo)')
-    plt.legend()
-    plt.grid(True)
+    print("\n[V] Evolución terminada. Resultados guardados en el CSV.")
     
-    print("\nEvolución terminada. Revisa la gráfica y el archivo CSV.")
-    plt.show()
+    # --- MOSTRAR LAS 4 GRÁFICAS DEL PROYECTO ---
+    print("\nGenerando Gráficas de Resultados (cierra una ventana para ver la siguiente)...")
+    
+    # 1. Gráfica de evolución de las variables de optimización (Vmax, Ecurva, Tlap)
+    Visualizer.plot_evolucion_variables(historial_vmax, historial_ecurva, historial_tlap)
+    
+    # 2. Gráfica de evolución de la aptitud (Fitness)
+    Visualizer.plot_convergencia(historial_mejor, historial_media, historial_peor)
+
+    # 3. Telemetría Simulada: Velocidad vs Distancia (Base vs AG)
+    genes_base = {
+        "aleron_delantero": 25, "aleron_trasero": 25,
+        "barra_estabilizadora": 10, "camber_frontal": -3.0,
+        "toe_frontal": 0.25, "altura_chasis": 25
+    }
+    Visualizer.plot_telemetria_simulada(
+        evaluador, genes_base, mejor_individuo.genes,
+        nombre_pista=evaluador.nombre_pista
+    )
+
+    # 4. Mapa de Calor de Carga Aerodinámica 
+    Visualizer.plot_mapa_calor_aero(evaluador, mejor_individuo.genes)
+
 
 # Punto de entrada de la aplicación
 if __name__ == "__main__":

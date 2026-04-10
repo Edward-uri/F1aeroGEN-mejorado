@@ -1,1 +1,34 @@
-/src/modulos/__pycache__
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Node
+frontend/node_modules/
+frontend/dist/
+
+# Documentación / Reportes
+*.tex
+*.pdf
+*.aux
+*.log
+*.out
+*.toc
+*.synctex.gz
+*.fls
+*.fdb_latexmk
+RESULTADOS_LATEX.txt
+TEXTOS_PARA_REPORTE.txt
+DIAGRAMAS_REPORTE.md
+datos_campeon.txt
+Reporte.tex
+imagenes/
+
+# Design system (generado por Gemini CLI)
+frontend/f1-design-system/
+
+# Archivos temporales
+*.csv
+graficas_reporte/
+base_*.txt
+evolucion_setups_f1.csv
