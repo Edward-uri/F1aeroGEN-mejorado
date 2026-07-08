@@ -6,6 +6,16 @@ import os
 # Carpeta de la base de conocimiento, resuelta desde la raíz del backend
 BC_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'base_conocimiento')
 
+# Velocidad tope del motor (m/s) con relación de marchas 1.0; una relación
+# corta (>1) recorta este tope a cambio de mejor aceleración.
+# ponytail: calibrado para que el recorte muerda en setups de poca ala
+# (vmax aero ~63-68 m/s); si se cambia la potencia del coche, recalibrar.
+V_TOPE_MOTOR = 72.0
+
+# El radio promedio del CSV sobreestima la velocidad de paso por curva real
+# (chicanes y horquillas van mucho más lento que la curva "promedio")
+FACTOR_APEX = 0.85
+
 
 class FitnessEvaluator:
     def __init__(self, pista_id, coche_id, km_actual, compuesto_actual):
@@ -45,6 +55,13 @@ class FitnessEvaluator:
 
         # se inyecta la densidad del aire según la altitud del circuito!
         self.RHO = pista['Densidad_Aire_kg_m3']
+
+        # La vuelta se modela como n_pares segmentos (recta + curva). El número
+        # de curvas se estima de la longitud total de curva y el radio promedio
+        # (arco de ~90° por curva): Mónaco ≈ 20 curvas, Monza ≈ 8.
+        self.n_pares = max(3, min(20, round(self.d_curvas / (self.r_curva * math.pi / 2))))
+        self.long_recta_seg = self.d_rectas / self.n_pares
+        self.long_curva_seg = self.d_curvas / self.n_pares
 
         # --- 3. VALIDAR COMPUESTO DE NEUMÁTICO ---
         if compuesto_actual not in self.df_llantas['Compuesto_Neumatico'].values:
@@ -117,11 +134,12 @@ class FitnessEvaluator:
         # hasta -12% de agarre por rigidez equivocada, hasta -5% por desbalance
         return 1.0 - 0.12 * abs(rigidez - rigidez_ideal) - 0.05 * desbalance_barras
 
-    def calcular_vmax(self, genes):
+    def _cd_total(self, genes):
+        """Coeficiente de arrastre total del setup."""
         cd_delantero, _ = self._obtener_coeficientes_aero(genes['aleron_delantero'])
         cd_trasero, _ = self._obtener_coeficientes_aero(genes['aleron_trasero'])
 
-        # Drag total = Chasis + Alerones + arrastre por Toe en ambos ejes
+        # Chasis + Alerones + arrastre por Toe en ambos ejes
         cd_total = self.CD_BASE + cd_delantero + cd_trasero \
             + 0.1 * (genes['toe_frontal'] + genes['toe_trasero'])
 
@@ -131,10 +149,20 @@ class FitnessEvaluator:
 
         # Presión baja = más resistencia a la rodadura
         cd_total += 0.03 * ((25.0 - genes['presion_delantera']) + (23.0 - genes['presion_trasera']))
+        return cd_total
 
-        # Vmax = raíz_cúbica( 2*P / (rho * A * Cd) )
-        vmax = math.pow((2 * self.P) / (self.RHO * self.A * cd_total), 1.0/3.0)
-        return vmax
+    def _potencia_efectiva(self, genes):
+        """Marchas cortas mantienen el motor en su banda de potencia (hasta +10%)."""
+        return self.P * (0.90 + 0.10 * (genes['relacion_marchas'] - 0.85) / 0.30)
+
+    def calcular_vmax(self, genes):
+        # Equilibrio aerodinámico: Vmax = raíz_cúbica( 2*P / (rho * A * Cd) )
+        p_ef = self._potencia_efectiva(genes)
+        v_aero = math.pow((2 * p_ef) / (self.RHO * self.A * self._cd_total(genes)), 1.0/3.0)
+
+        # Tope por régimen del motor: la relación corta corta la velocidad final
+        v_tope = V_TOPE_MOTOR / genes['relacion_marchas']
+        return min(v_aero, v_tope)
 
     def calcular_estabilidad(self, genes):
         _, cl_delantero = self._obtener_coeficientes_aero(genes['aleron_delantero'])
@@ -151,20 +179,72 @@ class FitnessEvaluator:
 
         # E_curva = mu * (Peso + L) / Peso
         e_curva = (mu * (self.PESO + L)) / self.PESO
+
+        # Diferencial muy bloqueado = subviraje a mitad de curva (hasta -6%);
+        # su recompensa es la tracción a la salida (ver simular_vuelta)
+        e_curva *= 1.0 - 0.06 * (genes['diferencial'] - 50) / 50.0
         return e_curva
 
-    def calcular_tiempo_vuelta(self, vmax, e_curva):
-        # Tiempo en rectas (penalizando un 15% por el tiempo de aceleración)
-        t_rectas = self.d_rectas / (vmax * 0.85)
+    def simular_vuelta(self, genes, dx=5.0):
+        """Simula la vuelta segmento a segmento con aceleración y frenado.
 
-        # Velocidad máxima posible en curva antes de superar las Fuerzas G soportadas
-        v_curva_limite = math.sqrt(e_curva * self.GRAVEDAD * self.r_curva)
+        En cada recta el coche sale de la curva anterior, acelera (limitado por
+        motor, tracción del diferencial y arrastre) y frena al final para entrar
+        a la siguiente curva. Devuelve (t_lap, trazo) donde trazo es una lista
+        de puntos (distancia_m, velocidad_ms) para graficar telemetría.
+        """
+        m = self.PESO / self.GRAVEDAD
+        vmax = self.calcular_vmax(genes)
+        e_curva = self.calcular_estabilidad(genes)
+        v_curva = min(FACTOR_APEX * math.sqrt(e_curva * self.GRAVEDAD * self.r_curva), vmax)
 
-        # Tiempo en curvas
-        t_curvas = self.d_curvas / v_curva_limite
+        # Frenada: la capacidad de agarre total frena el coche; un reparto
+        # lejos del ideal (58% delantero) desperdicia parte de esa capacidad
+        eficiencia_reparto = 1.0 - 0.01 * abs(genes['reparto_frenada'] - 58)
+        a_freno = e_curva * self.GRAVEDAD * eficiencia_reparto
 
-        t_lap = t_rectas + t_curvas
-        return t_lap
+        # Tracción a la salida de curva: el diferencial abierto patina (menos
+        # aceleración disponible), el bloqueado transmite todo el par
+        mu = self._obtener_friccion_llanta(genes) * self._factor_suspension(genes)
+        a_traccion = mu * self.GRAVEDAD * (0.55 + 0.45 * (genes['diferencial'] - 50) / 50.0)
+
+        p_ef = self._potencia_efectiva(genes)
+        cd_total = self._cd_total(genes)
+
+        t_total, dist = 0.0, 0.0
+        trazo = [(0.0, v_curva)]
+
+        for _ in range(self.n_pares):
+            # ── Recta: acelerar y frenar al final ──
+            D, v, x = self.long_recta_seg, v_curva, 0.0
+            while x < D:
+                # ¿ya hay que frenar para llegar a v_curva al final?
+                d_freno = (v*v - v_curva*v_curva) / (2 * a_freno) if v > v_curva else 0.0
+                if D - x <= d_freno:
+                    break
+                a_motor = p_ef / (m * v)
+                a_drag = 0.5 * self.RHO * self.A * cd_total * v * v / m
+                a = min(a_motor, a_traccion) - a_drag
+                paso = min(dx, D - x)
+                v = min(math.sqrt(max(v*v + 2*a*paso, 1.0)), vmax)
+                t_total += paso / v
+                x += paso
+                trazo.append((dist + x, v))
+            if v > v_curva:
+                # ponytail: el tramo final se aproxima como frenada pura (error O(dx))
+                t_total += (v - v_curva) / a_freno + max(0.0, (D - x) - d_freno) / v
+                trazo.append((dist + D, v_curva))
+            dist += D
+
+            # ── Curva: velocidad constante al límite de agarre ──
+            t_total += self.long_curva_seg / v_curva
+            dist += self.long_curva_seg
+            trazo.append((dist, v_curva))
+
+        return t_total, trazo
+
+    def calcular_tiempo_vuelta(self, genes):
+        return self.simular_vuelta(genes)[0]
 
     def evaluate(self, individual):
 
@@ -179,7 +259,7 @@ class FitnessEvaluator:
         # Calculamos los 3 pilares de la aptitud
         vmax = self.calcular_vmax(genes)
         e_curva = self.calcular_estabilidad(genes)
-        t_lap = self.calcular_tiempo_vuelta(vmax, e_curva)
+        t_lap = self.calcular_tiempo_vuelta(genes)
 
         penalizacion = 1.0
         if e_curva < 2.0:

@@ -17,6 +17,9 @@ const geneLabels = {
   altura_trasera: 'Altura Trasera (mm)',
   presion_delantera: 'Presión Delantera (psi)',
   presion_trasera: 'Presión Trasera (psi)',
+  relacion_marchas: 'Relación de Marchas',
+  diferencial: 'Diferencial (%)',
+  reparto_frenada: 'Reparto de Frenada (%)',
 }
 
 const formatGeneVal = (val) =>

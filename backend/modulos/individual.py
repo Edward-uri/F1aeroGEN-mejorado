@@ -23,6 +23,10 @@ LIMITES_GENES = {
     # Neumáticos
     "presion_delantera":          (22.5, 25.0, float),  # psi
     "presion_trasera":            (20.5, 23.0, float),  # psi
+    # Transmisión y frenos
+    "relacion_marchas":           (0.85, 1.15, float),  # >1 = marchas cortas: mejor aceleración, menor tope
+    "diferencial":                (50, 100, int),        # % bloqueo en aceleración: tracción vs subviraje
+    "reparto_frenada":            (50, 70, int),         # % de frenada al eje delantero
 }
 
 

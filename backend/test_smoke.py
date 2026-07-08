@@ -71,6 +71,7 @@ def main():
         "barra_antivuelco_delantera": 11, "barra_antivuelco_trasera": 11,
         "altura_delantera": 40, "altura_trasera": 42,
         "presion_delantera": 23.75, "presion_trasera": 21.75,
+        "relacion_marchas": 1.0, "diferencial": 75, "reparto_frenada": 60,
     }
 
     # Restricción dura: altura < 32mm toca el suelo → fitness 0
@@ -101,6 +102,30 @@ def main():
     # Desbalance de barras antivuelco penaliza
     desbalanceada = {**base, "barra_antivuelco_delantera": 21, "barra_antivuelco_trasera": 1}
     assert ev_monza._factor_suspension(base) > ev_monza._factor_suspension(desbalanceada)
+
+    # --- Física de la fase 2 (transmisión y frenos) ---
+    # Relación corta: el tope del motor recorta la Vmax en un setup de poca ala
+    poca_ala = {**base, "aleron_delantero": 5, "aleron_trasero": 5}
+    assert evaluador.calcular_vmax({**poca_ala, "relacion_marchas": 1.15}) \
+         < evaluador.calcular_vmax({**poca_ala, "relacion_marchas": 0.85}), \
+        "la relación corta debe recortar la velocidad punta"
+
+    # Diferencial bloqueado: subvira (menos estabilidad) pero acelera mejor
+    assert evaluador.calcular_estabilidad({**base, "diferencial": 50}) \
+         > evaluador.calcular_estabilidad({**base, "diferencial": 100})
+
+    # Reparto de frenada lejos del ideal (58%) alarga la vuelta.
+    # Se prueba en Mónaco: en Monza el setup base pasa las curvas a Vmax
+    # y nunca frena, así que ahí el reparto (correctamente) no influye.
+    assert ev_monaco.calcular_tiempo_vuelta({**base, "reparto_frenada": 58}) \
+         < ev_monaco.calcular_tiempo_vuelta({**base, "reparto_frenada": 70})
+
+    # El simulador recorre la pista completa y devuelve un trazo coherente
+    t_lap, trazo = evaluador.simular_vuelta(base)
+    assert t_lap > 0
+    assert abs(trazo[-1][0] - (evaluador.d_rectas + evaluador.d_curvas)) < 1.0, \
+        "el trazo debe cubrir la longitud total de la pista"
+    assert all(v > 0 for _, v in trazo), "ninguna velocidad del trazo puede ser <= 0"
 
     # El método de selección original sigue disponible
     motor_todos = GeneticEngine(6, 10, 0.75, 0.30, 0.20, seleccion="todos")

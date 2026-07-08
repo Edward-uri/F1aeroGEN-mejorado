@@ -10,7 +10,7 @@ Sistema de optimización de configuración aerodinámica y mecánica para monopl
 # Descripcion del proyectó: 
 Desarrollo de un sistema basado en algoritmos genéticos que determina la combinación óptima de ángulos de alerones y rigidez de suspensión. El sistema simula una vuelta al circuito y evoluciona los parámetros para reducir el tiempo total, respetando las leyes físicas de fricción y resistencia aerodinámica.
 
-# VARIABLES DE DECISIÓN (14 genes, rangos del setup de F1 25)
+# VARIABLES DE DECISIÓN (17 genes, rangos del setup de F1 25)
 - Ángulo de alerón delantero y trasero
 - Camber delantero y trasero
 - Toe delantero y trasero
@@ -18,6 +18,9 @@ Desarrollo de un sistema basado en algoritmos genéticos que determina la combin
 - Barra antivuelco delantera y trasera
 - Altura de chasis delantera y trasera (efecto suelo y rake)
 - Presión de neumáticos delantera y trasera
+- Relación de marchas (aceleración vs velocidad tope)
+- Diferencial en aceleración (tracción vs subviraje)
+- Reparto de frenada (distancia de frenado)
 
 # VARIABLES A OPTIMIZAR:
 - Tiempo de vuelta
@@ -79,3 +82,7 @@ cd backend && .venv/bin/python test_smoke.py
 - Los coeficientes aerodinámicos y la fricción de neumáticos se interpolan
   linealmente entre las filas de los CSVs, así cada grado de alerón tiene un
   efecto distinto (sin mesetas de fitness).
+- El tiempo de vuelta se obtiene con un simulador por segmentos
+  (`simular_vuelta`): en cada recta el coche acelera (limitado por motor,
+  tracción del diferencial y arrastre) y frena al final para entrar a la
+  curva. La gráfica de telemetría muestra el perfil real de ese simulador.

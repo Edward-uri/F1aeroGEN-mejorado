@@ -31,6 +31,7 @@ GENES_BASE = {
     "barra_antivuelco_delantera": 11, "barra_antivuelco_trasera": 11,
     "altura_delantera": 40, "altura_trasera": 42,
     "presion_delantera": 23.75, "presion_trasera": 21.75,
+    "relacion_marchas": 1.0, "diferencial": 75, "reparto_frenada": 60,
 }
 
 
@@ -130,7 +131,7 @@ def evolucionar(req: EvolucionRequest):
 
         vmax = evaluador.calcular_vmax(mejor.genes)
         e_curva = evaluador.calcular_estabilidad(mejor.genes)
-        t_vuelta = evaluador.calcular_tiempo_vuelta(vmax, e_curva)
+        t_vuelta = evaluador.calcular_tiempo_vuelta(mejor.genes)
 
         historial_vmax.append(vmax)
         historial_ecurva.append(e_curva)
@@ -152,14 +153,14 @@ def evolucionar(req: EvolucionRequest):
     campeon = motor.population[0]
     vmax_f = evaluador.calcular_vmax(campeon.genes)
     ecurva_f = evaluador.calcular_estabilidad(campeon.genes)
-    tlap_f = evaluador.calcular_tiempo_vuelta(vmax_f, ecurva_f)
+    tlap_f = evaluador.calcular_tiempo_vuelta(campeon.genes)
 
     # Config base para comparar
     ind_base = Individual(genes=GENES_BASE.copy())
     evaluador.evaluate(ind_base)
     vmax_base = evaluador.calcular_vmax(GENES_BASE)
     ecurva_base = evaluador.calcular_estabilidad(GENES_BASE)
-    tlap_base = evaluador.calcular_tiempo_vuelta(vmax_base, ecurva_base)
+    tlap_base = evaluador.calcular_tiempo_vuelta(GENES_BASE)
 
     # Generar las 4 gráficas como base64
     graficas = {

@@ -2,7 +2,6 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import numpy as np
-import math
 import io
 import base64
 
@@ -64,67 +63,35 @@ class Visualizer:
 
     @staticmethod
     def plot_telemetria_simulada(evaluador, genes_base, genes_campeon, nombre_pista="Circuito"):
-        d_rectas = evaluador.d_rectas
-        d_curvas = evaluador.d_curvas
-        n_segmentos = 8
-        longitud_recta_seg = d_rectas / (n_segmentos // 2)
-        longitud_curva_seg = d_curvas / (n_segmentos // 2)
+        # Trazos reales del simulador de vuelta (aceleración + frenado por segmento)
+        t_base, trazo_base = evaluador.simular_vuelta(genes_base)
+        t_ag, trazo_ag = evaluador.simular_vuelta(genes_campeon)
 
-        vmax_base = evaluador.calcular_vmax(genes_base)
-        ecurva_base = evaluador.calcular_estabilidad(genes_base)
-        vcurva_base = math.sqrt(ecurva_base * evaluador.GRAVEDAD * evaluador.r_curva)
-        vmax_ag = evaluador.calcular_vmax(genes_campeon)
-        ecurva_ag = evaluador.calcular_estabilidad(genes_campeon)
-        vcurva_ag = math.sqrt(ecurva_ag * evaluador.GRAVEDAD * evaluador.r_curva)
-
-        dist_puntos, vel_base, vel_ag = [], [], []
-        dist_acum = 0.0
-        for i in range(n_segmentos):
-            if i % 2 == 0:
-                long_seg = longitud_recta_seg
-                puntos = np.linspace(0, long_seg, 50)
-                for p in puntos:
-                    dist_puntos.append(dist_acum + p)
-                    factor = min(1.0, (p / long_seg) * 1.3)
-                    vel_base.append((vmax_base * 0.85 + (vmax_base * 0.15) * factor) * 3.6)
-                    vel_ag.append((vmax_ag * 0.85 + (vmax_ag * 0.15) * factor) * 3.6)
-            else:
-                long_seg = longitud_curva_seg
-                puntos = np.linspace(0, long_seg, 50)
-                for p in puntos:
-                    dist_puntos.append(dist_acum + p)
-                    ratio = p / long_seg
-                    if ratio < 0.15:
-                        factor = 1.0 - (0.15 - ratio) * 3
-                        vel_base.append(max(vcurva_base, vmax_base * factor) * 3.6)
-                        vel_ag.append(max(vcurva_ag, vmax_ag * factor) * 3.6)
-                    elif ratio > 0.85:
-                        factor = (ratio - 0.85) * 3
-                        vel_base.append((vcurva_base + (vmax_base - vcurva_base) * factor) * 3.6)
-                        vel_ag.append((vcurva_ag + (vmax_ag - vcurva_ag) * factor) * 3.6)
-                    else:
-                        vel_base.append(vcurva_base * 3.6)
-                        vel_ag.append(vcurva_ag * 3.6)
-            dist_acum += long_seg
+        dist_puntos = [p[0] for p in trazo_base]
+        vel_base = [p[1] * 3.6 for p in trazo_base]
+        # el trazo del AG se interpola sobre la malla del base para poder sombrear
+        vel_ag = np.interp(dist_puntos, [p[0] for p in trazo_ag],
+                           [p[1] * 3.6 for p in trazo_ag])
 
         plt.figure(figsize=(14, 5), facecolor='#1a1a2e')
         ax = plt.gca()
         ax.set_facecolor('#1a1a2e')
-        plt.plot(dist_puntos, vel_base, color='#888888', linewidth=2, label='Config. Base', alpha=0.8)
-        plt.plot(dist_puntos, vel_ag, color='#e10600', linewidth=2.5, label='Mejor Individuo (AG)')
+        plt.plot(dist_puntos, vel_base, color='#888888', linewidth=2, label=f'Config. Base ({t_base:.1f}s)', alpha=0.8)
+        plt.plot(dist_puntos, vel_ag, color='#e10600', linewidth=2.5, label=f'Mejor Individuo AG ({t_ag:.1f}s)')
         plt.fill_between(dist_puntos, vel_base, vel_ag, alpha=0.15, color='#2ca02c',
                          where=[a > b for a, b in zip(vel_ag, vel_base)], label='AG supera')
         plt.fill_between(dist_puntos, vel_base, vel_ag, alpha=0.1, color='red',
                          where=[a < b for a, b in zip(vel_ag, vel_base)])
 
         dist_acum2 = 0.0
-        for i in range(n_segmentos):
-            long = longitud_recta_seg if i % 2 == 0 else longitud_curva_seg
+        for i in range(evaluador.n_pares * 2):
+            long = evaluador.long_recta_seg if i % 2 == 0 else evaluador.long_curva_seg
             color_bg = '#1e3a1e' if i % 2 == 0 else '#3a1e1e'
             plt.axvspan(dist_acum2, dist_acum2 + long, alpha=0.15, color=color_bg)
-            etiqueta = 'R' if i % 2 == 0 else 'C'
-            plt.text(dist_acum2 + long / 2, max(vel_ag) * 0.98, etiqueta,
-                     ha='center', fontsize=9, color='#666', alpha=0.7)
+            if evaluador.n_pares <= 8:
+                etiqueta = 'R' if i % 2 == 0 else 'C'
+                plt.text(dist_acum2 + long / 2, max(vel_ag) * 0.98, etiqueta,
+                         ha='center', fontsize=9, color='#666', alpha=0.7)
             dist_acum2 += long
 
         plt.title(f'Telemetría Simulada — {nombre_pista}', fontsize=13, pad=12, color='white')

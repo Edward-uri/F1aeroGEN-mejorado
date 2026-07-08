@@ -84,7 +84,7 @@ def metodo_inicializacion():
         # Calculamos métricas reales para el print y el CSV
         vmax = evaluador.calcular_vmax(mejor_individuo.genes)
         e_curva = evaluador.calcular_estabilidad(mejor_individuo.genes)
-        tiempo_vuelta = evaluador.calcular_tiempo_vuelta(vmax, e_curva)
+        tiempo_vuelta = evaluador.calcular_tiempo_vuelta(mejor_individuo.genes)
 
         historial_vmax.append(vmax)
         historial_ecurva.append(e_curva)
@@ -121,6 +121,7 @@ def metodo_inicializacion():
         "barra_antivuelco_delantera": 11, "barra_antivuelco_trasera": 11,
         "altura_delantera": 40, "altura_trasera": 42,
         "presion_delantera": 23.75, "presion_trasera": 21.75,
+        "relacion_marchas": 1.0, "diferencial": 75, "reparto_frenada": 60,
     }
 
     guardar_grafica('grafica_variables.png',
