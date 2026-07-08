@@ -115,8 +115,12 @@ def metodo_inicializacion():
 
     genes_base = {
         "aleron_delantero": 25, "aleron_trasero": 25,
-        "barra_estabilizadora": 10, "camber_frontal": -3.0,
-        "toe_frontal": 0.25, "altura_chasis": 25
+        "camber_frontal": -3.0, "camber_trasero": -1.5,
+        "toe_frontal": 0.25, "toe_trasero": 0.25,
+        "suspension_delantera": 21, "suspension_trasera": 21,
+        "barra_antivuelco_delantera": 11, "barra_antivuelco_trasera": 11,
+        "altura_delantera": 40, "altura_trasera": 42,
+        "presion_delantera": 23.75, "presion_trasera": 21.75,
     }
 
     guardar_grafica('grafica_variables.png',

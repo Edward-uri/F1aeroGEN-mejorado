@@ -41,6 +41,7 @@ class FitnessEvaluator:
         self.d_rectas = pista['Longitud_Rectas_m']
         self.d_curvas = pista['Longitud_Curvas_m']
         self.r_curva = pista['Radio_Curva_Promedio_m']
+        self.RUGOSIDAD = pista['Rugosidad_Asfalto']  # 0.85 (lisa) a 1.20 (rugosa)
 
         # se inyecta la densidad del aire según la altitud del circuito!
         self.RHO = pista['Densidad_Aire_kg_m3']
@@ -71,19 +72,65 @@ class FitnessEvaluator:
         return cd, cl
 
     def _obtener_friccion_llanta(self, genes):
-        """Interpola la fricción base según el desgaste y le suma la mejora por Camber."""
+        """Interpola la fricción base según el desgaste y le suma camber y presiones."""
         mu_base_llanta = np.interp(self.km_actual, self._llanta_km, self._llanta_mu)
 
-        # El camber negativo mejora el agarre lateral de la llanta
-        mu_real = mu_base_llanta + (0.05 * abs(genes['camber_frontal']))
+        # El camber negativo mejora el agarre lateral en ambos ejes
+        mu_real = mu_base_llanta + (0.05 * abs(genes['camber_frontal'])) \
+                                 + (0.05 * abs(genes['camber_trasero']))
+
+        # Presión baja = mayor huella de contacto = más agarre (a cambio de
+        # más resistencia a la rodadura, que se cobra en calcular_vmax)
+        mu_real += 0.02 * ((25.0 - genes['presion_delantera']) + (23.0 - genes['presion_trasera']))
         return mu_real
+
+    def _carga_aero_suelo(self, genes):
+        """Cl extra por efecto suelo y rake (alturas del chasis)."""
+        # Efecto suelo: cuanto más bajo el coche, más carga genera el difusor
+        altura_promedio = (genes['altura_delantera'] + genes['altura_trasera']) / 2.0
+        cl_suelo = 0.8 * (50 - altura_promedio) / 20.0  # 0 a 50mm, 0.8 a 30mm
+
+        # Rake positivo (trasera más alta) inclina el difusor y suma carga;
+        # rake negativo (nariz arriba) la pierde
+        rake = genes['altura_trasera'] - genes['altura_delantera']
+        cl_rake = 0.02 * rake
+        return cl_suelo + cl_rake
+
+    def _factor_suspension(self, genes):
+        """Factor de agarre [<=1] según rigidez de suspensión/barras vs rugosidad.
+
+        Pista lisa (Monza, 0.85) premia suspensión dura; pista rugosa
+        (Mónaco, 1.20) premia suspensión blanda que absorba los baches.
+        El desbalance entre barras antivuelco genera sub/sobreviraje.
+        """
+        rigidez = ((genes['suspension_delantera'] - 1) / 40.0
+                   + (genes['suspension_trasera'] - 1) / 40.0
+                   + (genes['barra_antivuelco_delantera'] - 1) / 20.0
+                   + (genes['barra_antivuelco_trasera'] - 1) / 20.0) / 4.0
+
+        rigidez_ideal = 1.0 - (self.RUGOSIDAD - 0.85) / 0.35
+        rigidez_ideal = min(1.0, max(0.0, rigidez_ideal))
+
+        desbalance_barras = abs((genes['barra_antivuelco_delantera'] - 1) / 20.0
+                                - (genes['barra_antivuelco_trasera'] - 1) / 20.0)
+
+        # hasta -12% de agarre por rigidez equivocada, hasta -5% por desbalance
+        return 1.0 - 0.12 * abs(rigidez - rigidez_ideal) - 0.05 * desbalance_barras
 
     def calcular_vmax(self, genes):
         cd_delantero, _ = self._obtener_coeficientes_aero(genes['aleron_delantero'])
         cd_trasero, _ = self._obtener_coeficientes_aero(genes['aleron_trasero'])
 
-        # Drag total = Chasis + Alerón Del + Alerón Tras + Penalización por Toe Frontal (fricción extra)
-        cd_total = self.CD_BASE + cd_delantero + cd_trasero + (0.1 * genes['toe_frontal'])
+        # Drag total = Chasis + Alerones + arrastre por Toe en ambos ejes
+        cd_total = self.CD_BASE + cd_delantero + cd_trasero \
+            + 0.1 * (genes['toe_frontal'] + genes['toe_trasero'])
+
+        # El rake positivo genera carga extra pero también arrastre
+        rake = genes['altura_trasera'] - genes['altura_delantera']
+        cd_total += 0.01 * max(0, rake)
+
+        # Presión baja = más resistencia a la rodadura
+        cd_total += 0.03 * ((25.0 - genes['presion_delantera']) + (23.0 - genes['presion_trasera']))
 
         # Vmax = raíz_cúbica( 2*P / (rho * A * Cd) )
         vmax = math.pow((2 * self.P) / (self.RHO * self.A * cd_total), 1.0/3.0)
@@ -93,13 +140,14 @@ class FitnessEvaluator:
         _, cl_delantero = self._obtener_coeficientes_aero(genes['aleron_delantero'])
         _, cl_trasero = self._obtener_coeficientes_aero(genes['aleron_trasero'])
 
-        cl_total = self.CL_BASE + cl_delantero + cl_trasero
+        cl_total = self.CL_BASE + cl_delantero + cl_trasero + self._carga_aero_suelo(genes)
 
         # Carga aerodinámica (L) = 0.5 * rho * V^2 * A * Cl
         L = 0.5 * self.RHO * (self.V_REF_CURVA**2) * self.A * cl_total
 
-        # Obtenemos la fricción real sumando el desgaste de llantas y el camber
-        mu = self._obtener_friccion_llanta(genes)
+        # Fricción real: desgaste + camber + presiones, ajustada por la
+        # afinación de suspensión contra la rugosidad de la pista
+        mu = self._obtener_friccion_llanta(genes) * self._factor_suspension(genes)
 
         # E_curva = mu * (Peso + L) / Peso
         e_curva = (mu * (self.PESO + L)) / self.PESO
@@ -122,8 +170,9 @@ class FitnessEvaluator:
 
         genes = individual.genes
 
-        # Si la altura del chasis es muy baja, ocurre el "efecto suelo" y el coche choca.
-        if genes['altura_chasis'] < 5:
+        # Restricción dura: por debajo de 32mm el fondo plano toca el asfalto
+        # a alta velocidad (el efecto suelo premia ir bajo, esto pone el límite)
+        if min(genes['altura_delantera'], genes['altura_trasera']) < 32:
             individual.fitness = 0.0
             return 0.0
 

@@ -11,7 +11,7 @@ Para la fase de selección y formación de parejas reproductivas, el sistema imp
 
 ## **2\. Método de Reproducción (Cruce Uniforme / Uniform Crossover)**
 
-Para la fase de reproducción, el proyecto descarta las cruzas aritméticas o de punto único en favor del **Cruce Uniforme**. Este método trata a cada uno de los 6 genes del monoplaza (Alerones, Barra Estabilizadora, Camber, Toe y Altura) como bloques de construcción independientes.
+Para la fase de reproducción, el proyecto descarta las cruzas aritméticas o de punto único en favor del **Cruce Uniforme**. Este método trata a cada uno de los 14 genes del monoplaza (Alerones, Camber y Toe por eje, Suspensión, Barras Antivuelco, Alturas de chasis y Presiones de neumáticos) como bloques de construcción independientes.
 
 **Mecanismo de acción:** Por cada pareja seleccionada, se generan 2 descendientes (Hijos). El algoritmo evalúa cada gen de forma individual y, mediante una distribución probabilística del 50% ("lanzar una moneda"), decide si el *Hijo 1* hereda esa pieza mecánica específica del *Padre 1* o del *Padre 2*. El *Hijo 2* recibe invariablemente la pieza del padre no seleccionado.
 
@@ -28,7 +28,7 @@ Para inyectar diversidad genética y evitar que la población se estanque en mí
 **Mecanismo de acción:** Se evalúa mediante un sistema de doble probabilidad:
 
 1. **Probabilidad de Individuo (`p_mut_i`):** Determina si el hijo recién creado sufrirá alguna mutación.  
-2. **Probabilidad de Gen (`p_mut_gen`):** Si el individuo muta, se evalúa cada uno de sus 6 parámetros de manera independiente para decidir cuál pieza específica será alterada.
+2. **Probabilidad de Gen (`p_mut_gen`):** Si el individuo muta, se evalúa cada uno de sus 14 parámetros de manera independiente para decidir cuál pieza específica será alterada.
 
 Cuando un gen es seleccionado para mutar, se decide con probabilidad 50/50 entre dos operadores:
 

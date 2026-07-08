@@ -61,6 +61,47 @@ def main():
     cd27, cl27 = evaluador._obtener_coeficientes_aero(27)
     assert cd23 != cd27 and cl23 != cl27, "ángulos 23 y 27 deben tener coeficientes distintos"
 
+    # --- Física de los genes nuevos (ningún gen muerto) ---
+    from modulos.individual import Individual
+    base = {
+        "aleron_delantero": 25, "aleron_trasero": 25,
+        "camber_frontal": -3.0, "camber_trasero": -1.5,
+        "toe_frontal": 0.25, "toe_trasero": 0.25,
+        "suspension_delantera": 21, "suspension_trasera": 21,
+        "barra_antivuelco_delantera": 11, "barra_antivuelco_trasera": 11,
+        "altura_delantera": 40, "altura_trasera": 42,
+        "presion_delantera": 23.75, "presion_trasera": 21.75,
+    }
+
+    # Restricción dura: altura < 32mm toca el suelo → fitness 0
+    tocando = Individual(genes={**base, "altura_delantera": 30})
+    assert evaluador.evaluate(tocando) == 0.0, "altura 30mm debió dar fitness 0"
+
+    # Efecto suelo: coche más bajo (legal) genera más estabilidad
+    e_bajo = evaluador.calcular_estabilidad({**base, "altura_delantera": 33, "altura_trasera": 33})
+    e_alto = evaluador.calcular_estabilidad({**base, "altura_delantera": 48, "altura_trasera": 48})
+    assert e_bajo > e_alto, "el efecto suelo debe premiar ir bajo"
+
+    # Presiones bajas: más agarre pero menos velocidad punta
+    bajas = {**base, "presion_delantera": 22.5, "presion_trasera": 20.5}
+    altas = {**base, "presion_delantera": 25.0, "presion_trasera": 23.0}
+    assert evaluador.calcular_estabilidad(bajas) > evaluador.calcular_estabilidad(altas)
+    assert evaluador.calcular_vmax(bajas) < evaluador.calcular_vmax(altas)
+
+    # Rugosidad: en Monza (lisa) gana suspensión dura, en Mónaco (rugosa) la blanda
+    dura = {**base, "suspension_delantera": 41, "suspension_trasera": 41,
+            "barra_antivuelco_delantera": 21, "barra_antivuelco_trasera": 21}
+    blanda = {**base, "suspension_delantera": 1, "suspension_trasera": 1,
+              "barra_antivuelco_delantera": 1, "barra_antivuelco_trasera": 1}
+    ev_monza = evaluador  # pista_id=1 es Monza
+    ev_monaco = FitnessEvaluator(pista_id=2, coche_id=1, km_actual=0, compuesto_actual='Blando')
+    assert ev_monza._factor_suspension(dura) > ev_monza._factor_suspension(blanda)
+    assert ev_monaco._factor_suspension(blanda) > ev_monaco._factor_suspension(dura)
+
+    # Desbalance de barras antivuelco penaliza
+    desbalanceada = {**base, "barra_antivuelco_delantera": 21, "barra_antivuelco_trasera": 1}
+    assert ev_monza._factor_suspension(base) > ev_monza._factor_suspension(desbalanceada)
+
     # El método de selección original sigue disponible
     motor_todos = GeneticEngine(6, 10, 0.75, 0.30, 0.20, seleccion="todos")
     motor_todos.create_population()

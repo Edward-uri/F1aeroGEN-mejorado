@@ -22,11 +22,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Setup de referencia contra el que se compara al campeón del AG
+# Setup de referencia contra el que se compara al campeón del AG (valores medios)
 GENES_BASE = {
     "aleron_delantero": 25, "aleron_trasero": 25,
-    "barra_estabilizadora": 10, "camber_frontal": -3.0,
-    "toe_frontal": 0.25, "altura_chasis": 25,
+    "camber_frontal": -3.0, "camber_trasero": -1.5,
+    "toe_frontal": 0.25, "toe_trasero": 0.25,
+    "suspension_delantera": 21, "suspension_trasera": 21,
+    "barra_antivuelco_delantera": 11, "barra_antivuelco_trasera": 11,
+    "altura_delantera": 40, "altura_trasera": 42,
+    "presion_delantera": 23.75, "presion_trasera": 21.75,
 }
 
 
@@ -167,6 +171,7 @@ def evolucionar(req: EvolucionRequest):
 
     return {
         "mejor_individuo": campeon.genes,
+        "genes_base": GENES_BASE,
         "fitness": round(campeon.fitness, 4),
         "tiempo_vuelta": round(tlap_f, 2),
         "vmax_kmh": round(vmax_f * 3.6, 2),

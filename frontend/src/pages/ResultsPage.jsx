@@ -5,11 +5,22 @@ import { Trophy, Dna, LineChart, RotateCcw, TrendingUp, TrendingDown, Gauge, Tim
 const geneLabels = {
   aleron_delantero: 'Alerón Delantero (°)',
   aleron_trasero: 'Alerón Trasero (°)',
-  barra_estabilizadora: 'Barra Estabilizadora',
-  camber_frontal: 'Camber Frontal (°)',
-  toe_frontal: 'Toe Frontal',
-  altura_chasis: 'Altura Chasis',
+  camber_frontal: 'Camber Delantero (°)',
+  camber_trasero: 'Camber Trasero (°)',
+  toe_frontal: 'Toe Delantero (°)',
+  toe_trasero: 'Toe Trasero (°)',
+  suspension_delantera: 'Suspensión Delantera',
+  suspension_trasera: 'Suspensión Trasera',
+  barra_antivuelco_delantera: 'Barra Antivuelco Del.',
+  barra_antivuelco_trasera: 'Barra Antivuelco Tras.',
+  altura_delantera: 'Altura Delantera (mm)',
+  altura_trasera: 'Altura Trasera (mm)',
+  presion_delantera: 'Presión Delantera (psi)',
+  presion_trasera: 'Presión Trasera (psi)',
 }
+
+const formatGeneVal = (val) =>
+  typeof val === 'number' ? (Number.isInteger(val) ? val : val.toFixed(2)) : (val ?? '-')
 
 export default function ResultsPage({ results, onReset }) {
   const [expandedGraph, setExpandedGraph] = useState(null)
@@ -103,15 +114,10 @@ export default function ResultsPage({ results, onReset }) {
                 <tr key={key}>
                   <td className="stat-label">{geneLabels[key] || key}</td>
                   <td className="gene-val-base">
-                    {key === 'aleron_delantero' || key === 'aleron_trasero' ? '25°' :
-                      key === 'barra_estabilizadora' ? '10' :
-                      key === 'camber_frontal' ? '-3.00°' :
-                      key === 'toe_frontal' ? '0.25' :
-                      key === 'altura_chasis' ? '25' : '-'}
+                    {formatGeneVal(results.genes_base?.[key])}
                   </td>
                   <td className="gene-val-ag">
-                    {typeof val === 'number' ? (Number.isInteger(val) ? val : val.toFixed(2)) : val}
-                    { (key.includes('aleron') || key.includes('camber')) ? '°' : '' }
+                    {formatGeneVal(val)}
                   </td>
                 </tr>
               ))}

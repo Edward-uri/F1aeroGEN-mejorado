@@ -10,11 +10,14 @@ Sistema de optimización de configuración aerodinámica y mecánica para monopl
 # Descripcion del proyectó: 
 Desarrollo de un sistema basado en algoritmos genéticos que determina la combinación óptima de ángulos de alerones y rigidez de suspensión. El sistema simula una vuelta al circuito y evoluciona los parámetros para reducir el tiempo total, respetando las leyes físicas de fricción y resistencia aerodinámica.
 
-# VARIABLES DE DECISIÓN
-- Ángulo Alerón delantero
-- Ángulo Alerón trasero
-- Dureza de suspensión
-- Relacion de marchas
+# VARIABLES DE DECISIÓN (14 genes, rangos del setup de F1 25)
+- Ángulo de alerón delantero y trasero
+- Camber delantero y trasero
+- Toe delantero y trasero
+- Rigidez de suspensión delantera y trasera
+- Barra antivuelco delantera y trasera
+- Altura de chasis delantera y trasera (efecto suelo y rake)
+- Presión de neumáticos delantera y trasera
 
 # VARIABLES A OPTIMIZAR:
 - Tiempo de vuelta
