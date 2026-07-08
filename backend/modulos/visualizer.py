@@ -62,7 +62,8 @@ class Visualizer:
         return _fig_to_base64()
 
     @staticmethod
-    def plot_telemetria_simulada(evaluador, genes_base, genes_campeon, nombre_pista="Circuito"):
+    def plot_telemetria_simulada(evaluador, genes_base, genes_campeon, nombre_pista="Circuito",
+                                 trazo_real=None, tiempo_real=None):
         # Trazos reales del simulador de vuelta (aceleración + frenado por segmento)
         t_base, trazo_base = evaluador.simular_vuelta(genes_base)
         t_ag, trazo_ag = evaluador.simular_vuelta(genes_campeon)
@@ -82,6 +83,12 @@ class Visualizer:
                          where=[a > b for a, b in zip(vel_ag, vel_base)], label='AG supera')
         plt.fill_between(dist_puntos, vel_base, vel_ag, alpha=0.1, color='red',
                          where=[a < b for a, b in zip(vel_ag, vel_base)])
+
+        # Vuelta real capturada del juego por UDP (velocidades ya en km/h)
+        if trazo_real:
+            etiqueta = f'Telemetría Real F1 ({tiempo_real:.1f}s)' if tiempo_real else 'Telemetría Real F1'
+            plt.plot([p[0] for p in trazo_real], [p[1] for p in trazo_real],
+                     color='#00d2ff', linewidth=1.3, alpha=0.9, label=etiqueta)
 
         dist_acum2 = 0.0
         for i in range(evaluador.n_pares * 2):

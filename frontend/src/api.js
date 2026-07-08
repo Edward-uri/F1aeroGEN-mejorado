@@ -18,3 +18,18 @@ export async function evolucionar(params) {
   });
   return res.json();
 }
+
+export async function telemetriaIniciar() {
+  const res = await fetch(`${API_BASE}/telemetria/iniciar`, { method: 'POST' });
+  return res.json();
+}
+
+export async function telemetriaDetener() {
+  const res = await fetch(`${API_BASE}/telemetria/detener`, { method: 'POST' });
+  return res.json();
+}
+
+export async function telemetriaEstado() {
+  const res = await fetch(`${API_BASE}/telemetria/estado`);
+  return res.json();
+}

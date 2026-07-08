@@ -71,6 +71,25 @@ cd backend && .venv/bin/python cli.py
 cd backend && .venv/bin/python test_smoke.py
 ```
 
+# TELEMETRÍA DEL JUEGO F1 25 (opcional)
+
+El sistema puede capturar la telemetría UDP del juego y superponer una vuelta
+real sobre la simulada:
+
+1. En el juego: **Ajustes → Telemetría → UDP activado**, IP de esta máquina,
+   puerto `20777`, formato 2025 (también funciona con F1 23/24).
+2. En la pantalla de configuración pulsa **"Iniciar captura"** y corre vueltas.
+3. Marca **"Superponer la mejor vuelta real"** y ejecuta la evolución: la
+   gráfica de telemetría mostrará la vuelta real junto a la simulada.
+
+`GET /api/telemetria/estado` también devuelve el **setup aplicado en el juego**
+(paquete Car Setup) traducido a los nombres de los genes, para verificar que
+el setup propuesto por el AG se aplicó correctamente. El canal es de solo
+lectura: el setup del AG se captura en el juego a mano.
+
+Prueba sin el juego: `cd backend && .venv/bin/python test_telemetria.py`
+(simula los paquetes UDP del juego).
+
 # NOTAS
 - Para agregar una variable de decisión nueva: agrega su rango en `LIMITES_GENES`
   (`backend/modulos/individual.py`) y su efecto físico en `fitness_evaluator.py`.

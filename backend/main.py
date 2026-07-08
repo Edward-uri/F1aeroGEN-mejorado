@@ -11,6 +11,7 @@ from modulos.genetic_engine import GeneticEngine
 from modulos.fitness_evaluator import FitnessEvaluator, BC_DIR
 from modulos.individual import Individual
 from modulos.stop_criterial import StopCriteria
+from modulos.telemetry_listener import F1TelemetryListener
 from modulos.visualizer import Visualizer
 
 app = FastAPI(title="F1AeroGen API", version="1.1.0")
@@ -50,6 +51,15 @@ class EvolucionRequest(BaseModel):
     paciencia: int = Field(default=10, ge=0, description="Generaciones sin mejora antes de parar (0 = desactivado)")
     seed: Optional[int] = Field(default=None, description="Semilla aleatoria para resultados reproducibles")
     seleccion: Literal["torneo", "todos"] = Field(default="torneo", description="Método de selección de padres: torneo (k=3) o todos-contra-todos (original)")
+    incluir_telemetria_real: bool = Field(default=False, description="Superponer la mejor vuelta capturada por UDP en la gráfica de telemetría")
+
+
+class TelemetriaRequest(BaseModel):
+    puerto: int = Field(default=20777, ge=1024, le=65535)
+
+
+# Sesión de captura UDP del juego F1 (se crea al iniciar una captura)
+telemetry_listener: Optional[F1TelemetryListener] = None
 
 
 # ─── Endpoints ───
@@ -84,6 +94,36 @@ def get_coches():
             "area_frontal": float(row['Area_Frontal_m2']),
         })
     return coches
+
+
+@app.post("/api/telemetria/iniciar")
+def telemetria_iniciar(req: TelemetriaRequest = TelemetriaRequest()):
+    """Abre una nueva sesión de captura UDP (el juego debe transmitir a este puerto)."""
+    global telemetry_listener
+    if telemetry_listener and telemetry_listener.escuchando:
+        return telemetry_listener.estado()
+    telemetry_listener = F1TelemetryListener(puerto=req.puerto)
+    try:
+        telemetry_listener.start()
+    except OSError as e:
+        telemetry_listener = None
+        raise HTTPException(status_code=400, detail=f"No se pudo abrir el puerto UDP {req.puerto}: {e}")
+    return telemetry_listener.estado()
+
+
+@app.post("/api/telemetria/detener")
+def telemetria_detener():
+    """Detiene la captura; las vueltas y el setup capturados siguen disponibles."""
+    if telemetry_listener and telemetry_listener.escuchando:
+        telemetry_listener.stop()
+    return telemetria_estado()
+
+
+@app.get("/api/telemetria/estado")
+def telemetria_estado():
+    if not telemetry_listener:
+        return {"escuchando": False, "muestras": 0, "vueltas": [], "setup": None}
+    return telemetry_listener.estado()
 
 
 @app.post("/api/evolucionar")
@@ -162,11 +202,20 @@ def evolucionar(req: EvolucionRequest):
     ecurva_base = evaluador.calcular_estabilidad(GENES_BASE)
     tlap_base = evaluador.calcular_tiempo_vuelta(GENES_BASE)
 
+    # Vuelta real capturada por UDP (si se pidió y existe)
+    trazo_real, tiempo_real = None, None
+    if req.incluir_telemetria_real and telemetry_listener:
+        vuelta = telemetry_listener.mejor_vuelta()
+        if vuelta:
+            trazo_real, tiempo_real = vuelta['trazo'], vuelta['tiempo_s']
+
     # Generar las 4 gráficas como base64
     graficas = {
         "variables": Visualizer.plot_evolucion_variables(historial_vmax, historial_ecurva, historial_tlap),
         "aptitud": Visualizer.plot_convergencia(historial_mejor, historial_media, historial_peor),
-        "telemetria": Visualizer.plot_telemetria_simulada(evaluador, GENES_BASE, campeon.genes, evaluador.nombre_pista),
+        "telemetria": Visualizer.plot_telemetria_simulada(evaluador, GENES_BASE, campeon.genes,
+                                                          evaluador.nombre_pista,
+                                                          trazo_real=trazo_real, tiempo_real=tiempo_real),
         "mapa_calor": Visualizer.plot_mapa_calor_aero(evaluador, campeon.genes),
     }
 
@@ -188,4 +237,5 @@ def evolucionar(req: EvolucionRequest):
         "nombre_pista": evaluador.nombre_pista,
         "generaciones_ejecutadas": len(log_generaciones),
         "convergio": convergio,
+        "telemetria_real_incluida": trazo_real is not None,
     }
