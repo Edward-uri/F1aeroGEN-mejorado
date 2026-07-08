@@ -21,6 +21,21 @@ def gen_aleatorio(nombre):
     return round(random.uniform(minimo, maximo), 2)
 
 
+def gen_creep(nombre, valor_actual):
+    """Mutación creep: perturba el valor actual hasta ±10% del rango del gen.
+
+    A diferencia del reinicio aleatorio (salto exploratorio), el creep hace
+    ajuste fino alrededor de un valor que ya funciona (explotación local).
+    """
+    minimo, maximo, tipo = LIMITES_GENES[nombre]
+    delta = (maximo - minimo) * 0.10
+    nuevo = valor_actual + random.uniform(-delta, delta)
+    nuevo = max(minimo, min(maximo, nuevo))  # se recorta a los límites del gen
+    if tipo is int:
+        return int(round(nuevo))
+    return round(nuevo, 2)
+
+
 class Individual:
 
     def __init__(self, genes=None):

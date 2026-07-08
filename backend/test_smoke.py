@@ -3,7 +3,7 @@ import random
 
 from modulos.genetic_engine import GeneticEngine
 from modulos.fitness_evaluator import FitnessEvaluator
-from modulos.individual import LIMITES_GENES
+from modulos.individual import LIMITES_GENES, gen_creep
 from modulos.stop_criterial import StopCriteria
 
 
@@ -12,6 +12,8 @@ def main():
     evaluador = FitnessEvaluator(pista_id=1, coche_id=1, km_actual=0, compuesto_actual='Blando')
     motor = GeneticEngine(10, 30, 0.75, 0.30, 0.20)
     motor.create_population()
+    for ind in motor.population:
+        evaluador.evaluate(ind)
 
     mejores = []
     for _ in range(5):
@@ -46,6 +48,26 @@ def main():
     assert not paro.convergio(1.0)
     assert not paro.convergio(1.0)
     assert paro.convergio(1.0), "debió converger a la 3a generación sin mejora"
+
+    # La mutación creep respeta límites y tipos
+    for _ in range(200):
+        for nombre, (minimo, maximo, tipo) in LIMITES_GENES.items():
+            valor = gen_creep(nombre, minimo if random.random() < 0.5 else maximo)
+            assert minimo <= valor <= maximo, f"creep de {nombre}={valor} fuera de rango"
+            assert isinstance(valor, tipo), f"creep de {nombre} devolvió {type(valor).__name__}"
+
+    # La interpolación aero distingue ángulos que antes colapsaban al mismo valor
+    cd23, cl23 = evaluador._obtener_coeficientes_aero(23)
+    cd27, cl27 = evaluador._obtener_coeficientes_aero(27)
+    assert cd23 != cd27 and cl23 != cl27, "ángulos 23 y 27 deben tener coeficientes distintos"
+
+    # El método de selección original sigue disponible
+    motor_todos = GeneticEngine(6, 10, 0.75, 0.30, 0.20, seleccion="todos")
+    motor_todos.create_population()
+    for ind in motor_todos.population:
+        evaluador.evaluate(ind)
+    motor_todos.prune(motor_todos.mutate(motor_todos.crossover(motor_todos.generate_pairs())), evaluador)
+    assert motor_todos.population[0].fitness > 0
 
     print("OK: smoke test del motor genético pasó")
 

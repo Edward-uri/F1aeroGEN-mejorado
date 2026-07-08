@@ -69,5 +69,10 @@ cd backend && .venv/bin/python test_smoke.py
 - Para agregar una variable de decisión nueva: agrega su rango en `LIMITES_GENES`
   (`backend/modulos/individual.py`) y su efecto físico en `fitness_evaluator.py`.
   La generación aleatoria y la mutación la toman automáticamente.
-- El endpoint `/api/evolucionar` acepta `seed` (resultados reproducibles) y
-  `paciencia` (paro anticipado si no hay mejora en N generaciones; 0 = desactivado).
+- El endpoint `/api/evolucionar` acepta `seed` (resultados reproducibles),
+  `paciencia` (paro anticipado si no hay mejora en N generaciones; 0 = desactivado)
+  y `seleccion`: `"torneo"` (default, presión selectiva k=3, cómputo lineal) o
+  `"todos"` (emparejamiento combinatorio original, útil para comparar métodos).
+- Los coeficientes aerodinámicos y la fricción de neumáticos se interpolan
+  linealmente entre las filas de los CSVs, así cada grado de alerón tiene un
+  efecto distinto (sin mesetas de fitness).

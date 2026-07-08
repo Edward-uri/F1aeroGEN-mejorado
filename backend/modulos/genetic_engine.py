@@ -1,26 +1,42 @@
 import random
-from modulos.individual import Individual, gen_aleatorio
+from modulos.individual import Individual, gen_aleatorio, gen_creep
 
 class GeneticEngine:
-    def __init__(self, p_initial, p_max, p_cruza, p_mut_i, p_mut_gen):
+    def __init__(self, p_initial, p_max, p_cruza, p_mut_i, p_mut_gen, seleccion="torneo"):
         self.p_initial = p_initial
         self.p_max = p_max
         self.p_cruza = p_cruza
         self.p_mut_i = p_mut_i
         self.p_mut_gen = p_mut_gen
-        self.population = [] 
+        self.seleccion = seleccion  # "torneo" (con presión selectiva) o "todos" (combinatorio original)
+        self.population = []
 
     def create_population(self):
         for _ in range(self.p_initial):
-            nuevo_individuo = Individual() 
+            nuevo_individuo = Individual()
             self.population.append(nuevo_individuo)
-    
+
+    def _torneo(self, k=3):
+        """Selección por torneo: gana el más apto de k individuos al azar."""
+        candidatos = random.sample(self.population, min(k, len(self.population)))
+        return max(candidatos, key=lambda ind: ind.fitness)
+
     def generate_pairs(self):
+        if self.seleccion == "todos":
+            # Emparejamiento Combinatorio Probabilístico (método original, O(n²))
+            pairs = []
+            for i in range(len(self.population)):
+                for j in range(i + 1, len(self.population)):
+                    if random.random() <= self.p_cruza:
+                        pairs.append((self.population[i], self.population[j]))
+            return pairs
+
+        # Selección por torneo: los padres más aptos tienen más probabilidad de
+        # reproducirse, y el número de parejas escala lineal con la población.
         pairs = []
-        for i in range(len(self.population)):
-            for j in range(i + 1, len(self.population)):
-                if random.random() <= self.p_cruza:
-                    pairs.append((self.population[i], self.population[j]))
+        for _ in range(max(1, len(self.population) // 2)):
+            if random.random() <= self.p_cruza:
+                pairs.append((self._torneo(), self._torneo()))
         return pairs
 
     def crossover(self, pairs):
@@ -44,8 +60,12 @@ class GeneticEngine:
             if random.random() <= self.p_mut_i:
                 for gen_nombre in ind.genes.keys():
                     if random.random() <= self.p_mut_gen:
-                        # Reinicio Aleatorio Limitado dentro de los límites del gen
-                        ind.genes[gen_nombre] = gen_aleatorio(gen_nombre)
+                        # Mutación híbrida 50/50: reinicio aleatorio (exploración,
+                        # saltos grandes) o creep (explotación, ajuste fino ±10%)
+                        if random.random() < 0.5:
+                            ind.genes[gen_nombre] = gen_aleatorio(gen_nombre)
+                        else:
+                            ind.genes[gen_nombre] = gen_creep(gen_nombre, ind.genes[gen_nombre])
         return children
 
     def prune(self, children, evaluator):

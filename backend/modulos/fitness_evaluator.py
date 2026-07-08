@@ -1,4 +1,5 @@
 import math
+import numpy as np
 import pandas as pd
 import os
 
@@ -49,19 +50,29 @@ class FitnessEvaluator:
             disponibles = ', '.join(self.df_llantas['Compuesto_Neumatico'].unique())
             raise ValueError(f"Compuesto '{compuesto_actual}' no existe. Disponibles: {disponibles}")
 
+        # --- 4. TABLAS PARA INTERPOLACIÓN ---
+        # El CSV de aero va en pasos de ~5° pero los genes son enteros 1-50:
+        # interpolar hace que cada grado tenga coeficientes distintos (sin
+        # interpolación, ángulos vecinos colapsan al mismo valor y el fitness
+        # se llena de mesetas que estancan la convergencia).
+        df_aero_ord = self.df_aero.sort_values('Angulo_Aleron_Grados')
+        self._aero_angulos = df_aero_ord['Angulo_Aleron_Grados'].to_numpy(dtype=float)
+        self._aero_cd = df_aero_ord['Coeficiente_Drag_Cd'].to_numpy(dtype=float)
+        self._aero_cl = df_aero_ord['Coeficiente_Downforce_Cl'].to_numpy(dtype=float)
+
+        df_llanta = self.df_llantas[self.df_llantas['Compuesto_Neumatico'] == compuesto_actual].sort_values('Kilometro')
+        self._llanta_km = df_llanta['Kilometro'].to_numpy(dtype=float)
+        self._llanta_mu = df_llanta['Coeficiente_Friccion_Mu'].to_numpy(dtype=float)
+
     def _obtener_coeficientes_aero(self, angulo):
-        """Busca en el CSV de aerodinámica los coeficientes para un ángulo específico."""
-        # Encuentra la fila con el ángulo más cercano al gen del individuo
-        idx = (abs(self.df_aero['Angulo_Aleron_Grados'] - angulo)).idxmin()
-        fila = self.df_aero.iloc[idx]
-        return fila['Coeficiente_Drag_Cd'], fila['Coeficiente_Downforce_Cl']
+        """Interpola los coeficientes aerodinámicos para un ángulo de alerón."""
+        cd = np.interp(angulo, self._aero_angulos, self._aero_cd)
+        cl = np.interp(angulo, self._aero_angulos, self._aero_cl)
+        return cd, cl
 
     def _obtener_friccion_llanta(self, genes):
-        """Busca en el CSV de llantas la fricción base y le suma la mejora por Camber."""
-        # Filtramos por compuesto y encontramos el kilometraje más cercano
-        df_filtrado = self.df_llantas[self.df_llantas['Compuesto_Neumatico'] == self.compuesto_actual]
-        idx = (abs(df_filtrado['Kilometro'] - self.km_actual)).idxmin()
-        mu_base_llanta = df_filtrado.loc[idx, 'Coeficiente_Friccion_Mu']
+        """Interpola la fricción base según el desgaste y le suma la mejora por Camber."""
+        mu_base_llanta = np.interp(self.km_actual, self._llanta_km, self._llanta_mu)
 
         # El camber negativo mejora el agarre lateral de la llanta
         mu_real = mu_base_llanta + (0.05 * abs(genes['camber_frontal']))

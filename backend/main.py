@@ -44,6 +44,7 @@ class EvolucionRequest(BaseModel):
     n_generaciones: int = Field(default=25, ge=1, le=500)
     paciencia: int = Field(default=10, ge=0, description="Generaciones sin mejora antes de parar (0 = desactivado)")
     seed: Optional[int] = Field(default=None, description="Semilla aleatoria para resultados reproducibles")
+    seleccion: Literal["torneo", "todos"] = Field(default="torneo", description="Método de selección de padres: torneo (k=3) o todos-contra-todos (original)")
 
 
 # ─── Endpoints ───
@@ -95,8 +96,11 @@ def evolucionar(req: EvolucionRequest):
     except FileNotFoundError as e:
         raise HTTPException(status_code=500, detail=f"Falta un CSV de la base de conocimiento: {e}")
 
-    motor = GeneticEngine(req.p_initial, req.p_max, req.p_cruza, req.p_mut_i, req.p_mut_gen)
+    motor = GeneticEngine(req.p_initial, req.p_max, req.p_cruza, req.p_mut_i, req.p_mut_gen, seleccion=req.seleccion)
     motor.create_population()
+    # Evaluar la población inicial: el torneo necesita fitness reales desde la gen 1
+    for ind in motor.population:
+        evaluador.evaluate(ind)
     paro = StopCriteria(paciencia=req.paciencia)
 
     historial_mejor, historial_peor, historial_media = [], [], []

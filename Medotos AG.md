@@ -1,13 +1,13 @@
-## **1\. Método de Generación de Parejas (Emparejamiento Combinatorio Probabilístico)**
+## **1\. Método de Selección de Padres (Torneo Determinista, k=3)**
 
-Para la fase de selección y formación de parejas reproductivas, el sistema implementa un **Emparejamiento Combinatorio Probabilístico (All-vs-All Pairing)**. En lugar de limitar la cruza estrictamente a los individuos de mayor aptitud (lo cual podría causar convergencia prematura), este método evalúa todas las combinaciones posibles dentro de la población poblacional.
-
-**Mecanismo de acción:** El algoritmo iterativo recorre la población asegurando que el *Individuo A* tenga la oportunidad de emparejarse con el *Individuo B* sin generar pares duplicados ni emparejamientos consigo mismo. La decisión final de consolidar la pareja está dictada por el hiper parámetro de **Probabilidad de Cruza (`p_cruza`)**, típicamente configurado entre 0.7 y 0.9.
+Para la fase de selección y formación de parejas reproductivas, el sistema implementa **Selección por Torneo**: para elegir a cada padre se toman *k=3* individuos al azar de la población y gana el de mayor aptitud. Se forman `población/2` parejas por generación, y cada pareja se consolida según la **Probabilidad de Cruza (`p_cruza`)**.
 
 **Justificación técnica:**
 
-* **Mantenimiento de la Diversidad Genética:** Al permitir que individuos con aptitudes medias participen en la cruza, se preservan "piezas" mecánicas (genes) que podrían ser invaluables en generaciones futuras, evitando que el algoritmo se estanque en mínimos locales.  
-* **Exploración de Sinergias:** En la dinámica de vehículos, un reglaje no es lineal. Un alerón de un individuo "lento" podría ser la pieza perfecta para la suspensión de un individuo "inestable". Este método fomenta la experimentación máxima de sinergias mecánicas en la fase inicial de búsqueda.
+* **Presión selectiva controlada:** Los individuos más aptos tienen mayor probabilidad de reproducirse, pero cualquier individuo puede ganar su torneo si le tocan rivales débiles. Esto acelera la convergencia sin eliminar la diversidad genética (un torneo de k=3 es presión moderada; valores altos de k harían la selección casi elitista).
+* **Costo computacional lineal:** El número de parejas escala con el tamaño de la población (O(n)), no con sus combinaciones (O(n²)). En la práctica esto redujo el cómputo por corrida ~12× respecto al método combinatorio, y a presupuesto de cómputo igual (más generaciones en el mismo tiempo) el torneo alcanza mejor aptitud final.
+
+**Método alternativo conservado — Emparejamiento Combinatorio Probabilístico (All-vs-All):** el sistema conserva el método original, seleccionable con el parámetro `seleccion="todos"`, en el que cada par posible de individuos tiene probabilidad `p_cruza` de reproducirse sin considerar su aptitud. Maximiza la exploración de sinergias mecánicas entre setups dispares, a costa de un número de evaluaciones cuadrático y de no ejercer ninguna presión selectiva en el emparejamiento (toda la presión recae en la poda). Mantener ambos métodos permite compararlos experimentalmente.
 
 ## **2\. Método de Reproducción (Cruce Uniforme / Uniform Crossover)**
 
@@ -21,16 +21,19 @@ Para la fase de reproducción, el proyecto descarta las cruzas aritméticas o de
 * **Modularidad Realista:** Este operador genético imita fielmente el trabajo en los *boxes* de Fórmula 1, donde los mecánicos pueden intercambiar el alerón frontal entero del Coche A y montarlo en el chasis del Coche B, sin alterar las propiedades atómicas de dicha pieza.  
 * **Alta Capacidad Exploratoria:** Al no depender del orden en el que están programados los parámetros en el código, el Cruce Uniforme elimina el sesgo posicional, permitiendo una recombinación macroestructural altamente eficiente.
 
-**3\. Método de Mutación (Reinicio Aleatorio Limitado / Bounded Random Resetting)**
+**3\. Método de Mutación (Híbrida: Reinicio Aleatorio Limitado \+ Creep)**
 
-Para inyectar diversidad genética y evitar que la población se estanque en mínimos locales (convergencia prematura), se implementó un operador de mutación basado en **Reinicio Aleatorio Limitado**.
+Para inyectar diversidad genética y evitar que la población se estanque en mínimos locales (convergencia prematura), se implementó un operador de mutación híbrido que combina **Reinicio Aleatorio Limitado** (exploración) con **Mutación Creep** (explotación).
 
 **Mecanismo de acción:** Se evalúa mediante un sistema de doble probabilidad:
 
 1. **Probabilidad de Individuo (`p_mut_i`):** Determina si el hijo recién creado sufrirá alguna mutación.  
 2. **Probabilidad de Gen (`p_mut_gen`):** Si el individuo muta, se evalúa cada uno de sus 6 parámetros de manera independiente para decidir cuál pieza específica será alterada.
 
-Cuando un gen es seleccionado para mutar, no se intercambia con otro gen del mismo individuo (lo cual corrompería los tipos de datos), sino que se genera un *nuevo valor aleatorio estrictamente dentro de los límites físicos y matemáticos* permitidos para esa pieza específica.
+Cuando un gen es seleccionado para mutar, se decide con probabilidad 50/50 entre dos operadores:
+
+* **Reinicio Aleatorio Limitado:** se genera un *nuevo valor aleatorio estrictamente dentro de los límites físicos* permitidos para esa pieza. Permite saltos exploratorios masivos (p. ej. pasar de un alerón de 5° a uno de 45° en una generación).
+* **Mutación Creep:** se perturba el valor actual hasta ±10% del rango del gen, recortando al límite si se excede. Realiza el *ajuste fino* alrededor de soluciones que ya funcionan — exactamente lo que un reinicio puro no puede hacer, y la razón por la que la versión anterior del algoritmo se estancaba una vez cerca del óptimo.
 
 **Justificación técnica y coherencia física:**
 

@@ -34,6 +34,9 @@ def metodo_inicializacion():
     paro = StopCriteria(paciencia=PACIENCIA)
 
     motor.create_population()
+    # Evaluar la población inicial: el torneo necesita fitness reales desde la gen 1
+    for ind in motor.population:
+        evaluador.evaluate(ind)
 
     # Listas para las gráficas
     historial_mejor = []
