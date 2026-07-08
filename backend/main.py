@@ -1,14 +1,19 @@
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-import pandas as pd
 import os
+import random
+from typing import Literal, Optional
+
+import pandas as pd
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel, Field
 
 from modulos.genetic_engine import GeneticEngine
-from modulos.fitness_evaluator import FitnessEvaluator
+from modulos.fitness_evaluator import FitnessEvaluator, BC_DIR
+from modulos.individual import Individual
+from modulos.stop_criterial import StopCriteria
 from modulos.visualizer import Visualizer
 
-app = FastAPI(title="F1AeroGen API", version="1.0.0")
+app = FastAPI(title="F1AeroGen API", version="1.1.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -17,21 +22,28 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-BC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'base_conocimiento')
+# Setup de referencia contra el que se compara al campeón del AG
+GENES_BASE = {
+    "aleron_delantero": 25, "aleron_trasero": 25,
+    "barra_estabilizadora": 10, "camber_frontal": -3.0,
+    "toe_frontal": 0.25, "altura_chasis": 25,
+}
 
 
 # ─── Modelos ───
 class EvolucionRequest(BaseModel):
     pista_id: int = 5
     coche_id: int = 1
-    km_actual: int = 0
-    compuesto: str = "Blando"
-    p_initial: int = 10
-    p_max: int = 30
-    p_cruza: float = 0.75
-    p_mut_i: float = 0.30
-    p_mut_gen: float = 0.20
-    n_generaciones: int = 25
+    km_actual: int = Field(default=0, ge=0)
+    compuesto: Literal["Blando", "Medio", "Duro"] = "Blando"
+    p_initial: int = Field(default=10, ge=2, le=100)
+    p_max: int = Field(default=30, ge=2, le=200)
+    p_cruza: float = Field(default=0.75, gt=0.0, le=1.0)
+    p_mut_i: float = Field(default=0.30, ge=0.0, le=1.0)
+    p_mut_gen: float = Field(default=0.20, ge=0.0, le=1.0)
+    n_generaciones: int = Field(default=25, ge=1, le=500)
+    paciencia: int = Field(default=10, ge=0, description="Generaciones sin mejora antes de parar (0 = desactivado)")
+    seed: Optional[int] = Field(default=None, description="Semilla aleatoria para resultados reproducibles")
 
 
 # ─── Endpoints ───
@@ -70,20 +82,27 @@ def get_coches():
 
 @app.post("/api/evolucionar")
 def evolucionar(req: EvolucionRequest):
+    if req.seed is not None:
+        random.seed(req.seed)
+
+    try:
+        evaluador = FitnessEvaluator(
+            pista_id=req.pista_id, coche_id=req.coche_id,
+            km_actual=req.km_actual, compuesto_actual=req.compuesto
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=500, detail=f"Falta un CSV de la base de conocimiento: {e}")
+
     motor = GeneticEngine(req.p_initial, req.p_max, req.p_cruza, req.p_mut_i, req.p_mut_gen)
-    evaluador = FitnessEvaluator(
-        pista_id=req.pista_id, coche_id=req.coche_id,
-        km_actual=req.km_actual, compuesto_actual=req.compuesto
-    )
-
-    if not evaluador.csv_cargados:
-        return {"error": "No se pudieron cargar los CSVs de la base de conocimiento."}
-
     motor.create_population()
+    paro = StopCriteria(paciencia=req.paciencia)
 
     historial_mejor, historial_peor, historial_media = [], [], []
     historial_vmax, historial_ecurva, historial_tlap = [], [], []
     log_generaciones = []
+    convergio = False
 
     for gen in range(req.n_generaciones):
         parejas = motor.generate_pairs()
@@ -117,6 +136,10 @@ def evolucionar(req: EvolucionRequest):
             "estabilidad": round(e_curva, 2),
         })
 
+        if paro.convergio(mejor.fitness):
+            convergio = True
+            break
+
     # Mejor individuo final
     campeon = motor.population[0]
     vmax_f = evaluador.calcular_vmax(campeon.genes)
@@ -124,23 +147,17 @@ def evolucionar(req: EvolucionRequest):
     tlap_f = evaluador.calcular_tiempo_vuelta(vmax_f, ecurva_f)
 
     # Config base para comparar
-    genes_base = {
-        "aleron_delantero": 25, "aleron_trasero": 25,
-        "barra_estabilizadora": 10, "camber_frontal": -3.0,
-        "toe_frontal": 0.25, "altura_chasis": 25
-    }
-    from modulos.individual import Individual
-    ind_base = Individual(genes=genes_base.copy())
+    ind_base = Individual(genes=GENES_BASE.copy())
     evaluador.evaluate(ind_base)
-    vmax_base = evaluador.calcular_vmax(genes_base)
-    ecurva_base = evaluador.calcular_estabilidad(genes_base)
+    vmax_base = evaluador.calcular_vmax(GENES_BASE)
+    ecurva_base = evaluador.calcular_estabilidad(GENES_BASE)
     tlap_base = evaluador.calcular_tiempo_vuelta(vmax_base, ecurva_base)
 
     # Generar las 4 gráficas como base64
     graficas = {
         "variables": Visualizer.plot_evolucion_variables(historial_vmax, historial_ecurva, historial_tlap),
         "aptitud": Visualizer.plot_convergencia(historial_mejor, historial_media, historial_peor),
-        "telemetria": Visualizer.plot_telemetria_simulada(evaluador, genes_base, campeon.genes, evaluador.nombre_pista),
+        "telemetria": Visualizer.plot_telemetria_simulada(evaluador, GENES_BASE, campeon.genes, evaluador.nombre_pista),
         "mapa_calor": Visualizer.plot_mapa_calor_aero(evaluador, campeon.genes),
     }
 
@@ -159,4 +176,6 @@ def evolucionar(req: EvolucionRequest):
         "log": log_generaciones,
         "graficas": graficas,
         "nombre_pista": evaluador.nombre_pista,
+        "generaciones_ejecutadas": len(log_generaciones),
+        "convergio": convergio,
     }

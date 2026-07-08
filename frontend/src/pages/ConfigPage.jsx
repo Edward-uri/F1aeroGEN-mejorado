@@ -10,6 +10,7 @@ const sliders = [
   { key: 'p_mut_i', label: 'Prob. Mutación (Individuo)', min: 0.05, max: 0.80, step: 0.05 },
   { key: 'p_mut_gen', label: 'Prob. Mutación (Gen)', min: 0.05, max: 0.50, step: 0.05 },
   { key: 'n_generaciones', label: 'Número de Generaciones', min: 5, max: 100, step: 5 },
+  { key: 'paciencia', label: 'Paciencia (paro por convergencia, 0 = off)', min: 0, max: 30, step: 1 },
 ]
 
 export default function ConfigPage({ selection, config, setConfig, onBack, onResults }) {

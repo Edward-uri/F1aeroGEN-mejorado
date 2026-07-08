@@ -2,6 +2,7 @@
 __pycache__/
 *.pyc
 *.pyo
+backend/.venv/
 
 # Node
 frontend/node_modules/
@@ -29,6 +30,9 @@ frontend/f1-design-system/
 
 # Archivos temporales
 *.csv
+# la base de conocimiento SÍ se versiona (sin ella el backend no arranca)
+!backend/base_conocimiento/*.csv
 graficas_reporte/
 base_*.txt
 evolucion_setups_f1.csv
+grafica_*.png

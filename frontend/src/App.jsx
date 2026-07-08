@@ -15,6 +15,7 @@ function App() {
     p_mut_i: 0.30,
     p_mut_gen: 0.20,
     n_generaciones: 25,
+    paciencia: 10,
   })
   const [results, setResults] = useState(null)
 

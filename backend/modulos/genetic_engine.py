@@ -1,8 +1,5 @@
 import random
-import csv
-import matplotlib.pyplot as plt
-from modulos.individual import Individual 
-from modulos.fitness_evaluator import FitnessEvaluator
+from modulos.individual import Individual, gen_aleatorio
 
 class GeneticEngine:
     def __init__(self, p_initial, p_max, p_cruza, p_mut_i, p_mut_gen):
@@ -47,17 +44,8 @@ class GeneticEngine:
             if random.random() <= self.p_mut_i:
                 for gen_nombre in ind.genes.keys():
                     if random.random() <= self.p_mut_gen:
-                        # Reinicio Aleatorio Limitado
-                        if gen_nombre == "aleron_delantero" or gen_nombre == "aleron_trasero":
-                            ind.genes[gen_nombre] = random.randint(1, 50)
-                        elif gen_nombre == "barra_estabilizadora":
-                            ind.genes[gen_nombre] = random.randint(1, 21)
-                        elif gen_nombre == "camber_frontal":
-                            ind.genes[gen_nombre] = round(random.uniform(-3.50, -2.50), 2)
-                        elif gen_nombre == "toe_frontal":
-                            ind.genes[gen_nombre] = round(random.uniform(0.0, 0.50), 2)
-                        elif gen_nombre == "altura_chasis":
-                            ind.genes[gen_nombre] = random.randint(1, 50)
+                        # Reinicio Aleatorio Limitado dentro de los límites del gen
+                        ind.genes[gen_nombre] = gen_aleatorio(gen_nombre)
         return children
 
     def prune(self, children, evaluator):
@@ -65,9 +53,11 @@ class GeneticEngine:
         # 1. Unimos la población actual y los nuevos hijos
         full_population = self.population + children
 
-        # 2. Evaluamos físicamente a todos los individuos
+        # 2. Evaluamos solo a los individuos nuevos: los padres conservan su fitness
+        # ponytail: fitness 0.0 = sin evaluar; los individuos "chocados" se re-evalúan, es idempotente
         for ind in full_population:
-            evaluator.evaluate(ind)
+            if ind.fitness == 0.0:
+                evaluator.evaluate(ind)
 
         # 3. Ordenamos de MAYOR a MENOR aptitud (queremos maximizar el fitness)
         full_population.sort(key=lambda x: x.fitness, reverse=True)

@@ -20,3 +20,54 @@ Desarrollo de un sistema basado en algoritmos genéticos que determina la combin
 - Tiempo de vuelta
 - Velocidad punta 
 - Estabilidad en curva
+
+# ESTRUCTURA DEL PROYECTO
+```
+backend/
+  main.py              → API FastAPI (la usa el frontend)
+  cli.py               → versión de consola (guarda CSV + PNGs)
+  test_smoke.py        → chequeo rápido del motor genético
+  base_conocimiento/   → CSVs: circuitos, coches, aero, neumáticos
+  modulos/
+    individual.py         → genes y sus límites (LIMITES_GENES)
+    genetic_engine.py     → cruza, mutación, poda con elitismo
+    fitness_evaluator.py  → modelo físico y función de aptitud
+    stop_criterial.py     → paro por convergencia
+    visualizer.py         → las 4 gráficas (PNG base64)
+    telemetry_listener.py → captura UDP del juego F1 (2025)
+frontend/              → interfaz web (React + Vite)
+```
+
+# CÓMO EJECUTAR
+
+**Backend** (requiere Python 3):
+```bash
+cd backend
+python3 -m venv .venv                 # solo la primera vez
+.venv/bin/pip install -r requirements.txt   # solo la primera vez
+.venv/bin/uvicorn main:app --port 8000
+```
+
+**Frontend** (requiere Node):
+```bash
+cd frontend
+npm install    # solo la primera vez
+npm run dev    # abre http://localhost:5173
+```
+
+**Versión de consola** (sin frontend):
+```bash
+cd backend && .venv/bin/python cli.py
+```
+
+**Prueba rápida del motor:**
+```bash
+cd backend && .venv/bin/python test_smoke.py
+```
+
+# NOTAS
+- Para agregar una variable de decisión nueva: agrega su rango en `LIMITES_GENES`
+  (`backend/modulos/individual.py`) y su efecto físico en `fitness_evaluator.py`.
+  La generación aleatoria y la mutación la toman automáticamente.
+- El endpoint `/api/evolucionar` acepta `seed` (resultados reproducibles) y
+  `paciencia` (paro anticipado si no hay mejora en N generaciones; 0 = desactivado).
