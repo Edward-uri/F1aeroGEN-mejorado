@@ -32,6 +32,8 @@ frontend/f1-design-system/
 *.csv
 # la base de conocimiento SÍ se versiona (sin ella el backend no arranca)
 !backend/base_conocimiento/*.csv
+# la calibración es local (depende de las capturas de cada quien)
+backend/base_conocimiento/calibracion.json
 graficas_reporte/
 base_*.txt
 evolucion_setups_f1.csv

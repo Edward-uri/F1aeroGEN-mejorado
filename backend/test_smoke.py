@@ -127,6 +127,35 @@ def main():
         "el trazo debe cubrir la longitud total de la pista"
     assert all(v > 0 for _, v in trazo), "ninguna velocidad del trazo puede ser <= 0"
 
+    # --- Calibración contra una vuelta "real" sintética ---
+    from modulos import calibrador
+    ev_cal = FitnessEvaluator(pista_id=5, coche_id=1, km_actual=0,
+                              compuesto_actual='Blando', usar_calibracion=False)
+    t_sim, trazo_sim = ev_cal.simular_vuelta(base)
+    # "vuelta real": el mismo coche, 15% más rápido en el trazo y 10% en tiempo
+    trazo_real = [(d, v * 3.6 * 1.15) for d, v in trazo_sim]  # a km/h, como el listener
+    t_real = t_sim / 1.10
+    factores, metricas = calibrador.calibrar_con_vuelta(ev_cal, base, trazo_real, t_real)
+    assert 1.05 < factores['tope'] < 1.20, f"factor de tope fuera de rango: {factores['tope']}"
+    assert abs(factores['potencia'] - factores['tope'] ** 3) < 0.01, "potencia debe ser tope³"
+    assert abs(metricas['error_pct']) < 1.0, \
+        f"tras calibrar, el tiempo simulado debe reproducir el real: {metricas}"
+
+    # El setup del juego se convierte en cromosoma válido (clamp + marchas por defecto)
+    genes_juego = calibrador.genes_desde_setup({'aleron_delantero': 0, 'camber_frontal': -5.0})
+    assert genes_juego['aleron_delantero'] == 1 and genes_juego['camber_frontal'] == -3.5
+    assert genes_juego['relacion_marchas'] == 1.0 and len(genes_juego) == len(LIMITES_GENES)
+
+    # Persistencia: guardar / cargar / borrar en un archivo temporal
+    import os
+    import tempfile
+    ruta_tmp = os.path.join(tempfile.gettempdir(), 'calibracion_test.json')
+    calibrador.guardar_calibracion(5, factores, ruta=ruta_tmp)
+    assert calibrador.calibracion_de_pista(5, ruta=ruta_tmp)['agarre'] == factores['agarre']
+    assert calibrador.borrar_calibracion(5, ruta=ruta_tmp)
+    assert calibrador.calibracion_de_pista(5, ruta=ruta_tmp) is None
+    os.remove(ruta_tmp)
+
     # El método de selección original sigue disponible
     motor_todos = GeneticEngine(6, 10, 0.75, 0.30, 0.20, seleccion="todos")
     motor_todos.create_population()

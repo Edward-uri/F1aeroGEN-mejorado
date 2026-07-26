@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { Sliders, ClipboardList, MoveLeft, Play, Radio } from 'lucide-react'
-import { evolucionar, telemetriaIniciar, telemetriaDetener, telemetriaEstado } from '../api'
+import { evolucionar, telemetriaIniciar, telemetriaDetener, telemetriaEstado, calibrar } from '../api'
 
 const sliders = [
   { key: 'p_initial', label: 'Población Inicial', min: 5, max: 50, step: 1 },
@@ -39,6 +39,20 @@ export default function ConfigPage({ selection, config, setConfig, onBack, onRes
   }
 
   const vueltasCompletas = telemetria?.vueltas?.filter(v => v.tiempo_s)?.length ?? 0
+  const [calibracion, setCalibracion] = useState(null)
+
+  const handleCalibrar = async () => {
+    try {
+      const res = await calibrar({
+        pista_id: selection.pista.id,
+        coche_id: selection.coche.id,
+        compuesto: selection.compuesto,
+      })
+      setCalibracion(res)
+    } catch (err) {
+      alert(`No se pudo calibrar: ${err.message}`)
+    }
+  }
 
   const handleRun = async () => {
     setLoading(true)
@@ -177,6 +191,21 @@ export default function ConfigPage({ selection, config, setConfig, onBack, onRes
               />
               Superponer la mejor vuelta real en la gráfica
             </label>
+            <button
+              className="btn-base btn-ghost"
+              style={{ width: '100%', marginTop: 10 }}
+              onClick={handleCalibrar}
+              disabled={vueltasCompletas === 0}
+            >
+              Calibrar modelo con la vuelta real
+            </button>
+            {calibracion && (
+              <p style={{ fontSize: '0.8rem', color: 'var(--text-dim)', marginTop: 8 }}>
+                Calibrado {calibracion.nombre_pista?.replace(/_/g, ' ')}: sim{' '}
+                {calibracion.tiempo_sim_despues_s}s vs real {calibracion.factores?.tiempo_real_s}s
+                {' '}(error {calibracion.error_pct}%)
+              </p>
+            )}
           </div>
 
           <div className="action-bar" style={{ flexDirection: 'column', marginTop: 32 }}>

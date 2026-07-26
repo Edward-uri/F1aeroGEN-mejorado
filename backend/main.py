@@ -7,6 +7,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
+from modulos import calibrador
 from modulos.genetic_engine import GeneticEngine
 from modulos.fitness_evaluator import FitnessEvaluator, BC_DIR
 from modulos.individual import Individual
@@ -56,6 +57,12 @@ class EvolucionRequest(BaseModel):
 
 class TelemetriaRequest(BaseModel):
     puerto: int = Field(default=20777, ge=1024, le=65535)
+
+
+class CalibrarRequest(BaseModel):
+    pista_id: int
+    coche_id: int = 1
+    compuesto: Literal["Blando", "Medio", "Duro"] = "Blando"
 
 
 # Sesión de captura UDP del juego F1 (se crea al iniciar una captura)
@@ -124,6 +131,48 @@ def telemetria_estado():
     if not telemetry_listener:
         return {"escuchando": False, "muestras": 0, "vueltas": [], "setup": None}
     return telemetry_listener.estado()
+
+
+@app.post("/api/calibrar")
+def calibrar(req: CalibrarRequest):
+    """Calibra el modelo físico de una pista con la mejor vuelta y el setup capturados."""
+    if not telemetry_listener:
+        raise HTTPException(status_code=400, detail="No hay sesión de telemetría; captura una vuelta primero.")
+    vuelta = telemetry_listener.mejor_vuelta()
+    if not vuelta:
+        raise HTTPException(status_code=400, detail="No hay ninguna vuelta completa capturada.")
+    if not telemetry_listener.setup_capturado:
+        raise HTTPException(status_code=400, detail="No se capturó el setup del coche (paquete Car Setup).")
+
+    try:
+        evaluador = FitnessEvaluator(pista_id=req.pista_id, coche_id=req.coche_id,
+                                     km_actual=0, compuesto_actual=req.compuesto,
+                                     usar_calibracion=False)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    genes = calibrador.genes_desde_setup(telemetry_listener.setup_capturado)
+    factores, metricas = calibrador.calibrar_con_vuelta(evaluador, genes, vuelta['trazo'], vuelta['tiempo_s'])
+    calibrador.guardar_calibracion(req.pista_id, factores)
+    return {
+        "pista_id": req.pista_id,
+        "nombre_pista": evaluador.nombre_pista,
+        "factores": factores,
+        "setup_usado": genes,
+        **metricas,
+    }
+
+
+@app.get("/api/calibrar")
+def calibraciones():
+    return calibrador.cargar_calibraciones()
+
+
+@app.delete("/api/calibrar/{pista_id}")
+def calibrar_borrar(pista_id: int):
+    if not calibrador.borrar_calibracion(pista_id):
+        raise HTTPException(status_code=404, detail=f"No hay calibración para la pista {pista_id}")
+    return {"borrada": pista_id}
 
 
 @app.post("/api/evolucionar")
@@ -238,4 +287,5 @@ def evolucionar(req: EvolucionRequest):
         "generaciones_ejecutadas": len(log_generaciones),
         "convergio": convergio,
         "telemetria_real_incluida": trazo_real is not None,
+        "modelo_calibrado": evaluador.calibrado,
     }

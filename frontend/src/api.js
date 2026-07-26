@@ -33,3 +33,14 @@ export async function telemetriaEstado() {
   const res = await fetch(`${API_BASE}/telemetria/estado`);
   return res.json();
 }
+
+export async function calibrar(params) {
+  const res = await fetch(`${API_BASE}/calibrar`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(params),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.detail || 'Error al calibrar');
+  return data;
+}

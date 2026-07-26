@@ -90,6 +90,20 @@ lectura: el setup del AG se captura en el juego a mano.
 Prueba sin el juego: `cd backend && .venv/bin/python test_telemetria.py`
 (simula los paquetes UDP del juego).
 
+**Calibración del modelo contra el juego:** con una vuelta completa y el setup
+capturados, el botón **"Calibrar modelo con la vuelta real"** (o
+`POST /api/calibrar {pista_id}`) ajusta el modelo físico de esa pista:
+
+- la **velocidad punta** se escala con la telemetría real (percentil 95),
+  aplicada a la potencia (k³) y al tope del motor (k);
+- el **agarre** se ajusta por bisección hasta que el tiempo simulado con el
+  setup capturado reproduce el tiempo real de la vuelta.
+
+Los factores quedan en `base_conocimiento/calibracion.json` (local, no se
+versiona) y las evoluciones siguientes en esa pista los usan automáticamente
+(campo `modelo_calibrado` en la respuesta). `GET /api/calibrar` lista las
+calibraciones; `DELETE /api/calibrar/{pista_id}` borra una.
+
 # NOTAS
 - Para agregar una variable de decisión nueva: agrega su rango en `LIMITES_GENES`
   (`backend/modulos/individual.py`) y su efecto físico en `fitness_evaluator.py`.

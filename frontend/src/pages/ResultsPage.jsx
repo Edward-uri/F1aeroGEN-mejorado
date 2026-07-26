@@ -75,6 +75,7 @@ export default function ResultsPage({ results, onReset }) {
         </motion.div>
         <p style={{ color: 'var(--text-dim)', fontSize: '0.95rem' }}>
           Configuración Base vs. Optimización por Algoritmo Genético
+          {results.modelo_calibrado ? ' · Modelo calibrado con telemetría real' : ''}
         </p>
       </header>
 

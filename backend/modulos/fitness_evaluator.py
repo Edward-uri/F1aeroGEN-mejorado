@@ -3,6 +3,8 @@ import numpy as np
 import pandas as pd
 import os
 
+from modulos.calibrador import calibracion_de_pista
+
 # Carpeta de la base de conocimiento, resuelta desde la raíz del backend
 BC_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'base_conocimiento')
 
@@ -18,7 +20,7 @@ FACTOR_APEX = 0.85
 
 
 class FitnessEvaluator:
-    def __init__(self, pista_id, coche_id, km_actual, compuesto_actual):
+    def __init__(self, pista_id, coche_id, km_actual, compuesto_actual, usar_calibracion=True):
 
         # Variables de estado de la simulación
         self.km_actual = km_actual
@@ -81,6 +83,17 @@ class FitnessEvaluator:
         df_llanta = self.df_llantas[self.df_llantas['Compuesto_Neumatico'] == compuesto_actual].sort_values('Kilometro')
         self._llanta_km = df_llanta['Kilometro'].to_numpy(dtype=float)
         self._llanta_mu = df_llanta['Coeficiente_Friccion_Mu'].to_numpy(dtype=float)
+
+        # --- 5. CALIBRACIÓN CONTRA EL JUEGO (si existe para esta pista) ---
+        self.CAL_POTENCIA = self.CAL_TOPE = self.CAL_AGARRE = 1.0
+        self.calibrado = False
+        if usar_calibracion:
+            cal = calibracion_de_pista(pista_id)
+            if cal:
+                self.CAL_POTENCIA = cal['potencia']
+                self.CAL_TOPE = cal['tope']
+                self.CAL_AGARRE = cal['agarre']
+                self.calibrado = True
 
     def _obtener_coeficientes_aero(self, angulo):
         """Interpola los coeficientes aerodinámicos para un ángulo de alerón."""
@@ -153,7 +166,7 @@ class FitnessEvaluator:
 
     def _potencia_efectiva(self, genes):
         """Marchas cortas mantienen el motor en su banda de potencia (hasta +10%)."""
-        return self.P * (0.90 + 0.10 * (genes['relacion_marchas'] - 0.85) / 0.30)
+        return self.P * self.CAL_POTENCIA * (0.90 + 0.10 * (genes['relacion_marchas'] - 0.85) / 0.30)
 
     def calcular_vmax(self, genes):
         # Equilibrio aerodinámico: Vmax = raíz_cúbica( 2*P / (rho * A * Cd) )
@@ -161,7 +174,7 @@ class FitnessEvaluator:
         v_aero = math.pow((2 * p_ef) / (self.RHO * self.A * self._cd_total(genes)), 1.0/3.0)
 
         # Tope por régimen del motor: la relación corta corta la velocidad final
-        v_tope = V_TOPE_MOTOR / genes['relacion_marchas']
+        v_tope = V_TOPE_MOTOR * self.CAL_TOPE / genes['relacion_marchas']
         return min(v_aero, v_tope)
 
     def calcular_estabilidad(self, genes):
@@ -177,8 +190,8 @@ class FitnessEvaluator:
         # afinación de suspensión contra la rugosidad de la pista
         mu = self._obtener_friccion_llanta(genes) * self._factor_suspension(genes)
 
-        # E_curva = mu * (Peso + L) / Peso
-        e_curva = (mu * (self.PESO + L)) / self.PESO
+        # E_curva = mu * (Peso + L) / Peso, con el agarre calibrado contra el juego
+        e_curva = (mu * (self.PESO + L)) / self.PESO * self.CAL_AGARRE
 
         # Diferencial muy bloqueado = subviraje a mitad de curva (hasta -6%);
         # su recompensa es la tracción a la salida (ver simular_vuelta)
