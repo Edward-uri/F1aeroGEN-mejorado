@@ -1,22 +1,49 @@
-# F1aeroGen
-Algoritmo genetico basado en la optimizacion de la configuracion de un auto de Formula 1 
+# F1aeroGEN
 
-# Contexto de la problemática: 
-En el automovilismo de alta competición (Fórmula 1), cada circuito presenta un perfil único de rectas y curvas. Los ingenieros deben configurar el vehículo (setup) antes de la carrera. Una configuración con mucha carga aerodinámica permite tomar curvas rápido, pero hace al coche lento en rectas debido a la resistencia al aire (drag).
-# Problemática: 
-Encontrar el equilibrio manual entre carga aerodinámica y velocidad punta es ineficiente y propenso a errores humanos. Una mala configuración resulta en tiempos de vuelta altos , consumo excesivo de neumáticos o imposibilidad de realizar adelantamientos, lo que conlleva pérdidas deportivas y económicas para la escudería.
-# Nombre largo: 
-Sistema de optimización de configuración aerodinámica y mecánica para monoplazas de competición mediante algoritmos genéticos
-# Descripcion del proyectó: 
-Desarrollo de un sistema basado en algoritmos genéticos que determina la combinación óptima de ángulos de alerones y rigidez de suspensión. El sistema simula una vuelta al circuito y evoluciona los parámetros para reducir el tiempo total, respetando las leyes físicas de fricción y resistencia aerodinámica.
+Sistema de optimización de la configuración de un monoplaza de Fórmula 1 mediante algoritmos genéticos.
 
-# VARIABLES DE DECISIÓN
-- Ángulo Alerón delantero
-- Ángulo Alerón trasero
-- Dureza de suspensión
-- Relacion de marchas
+## Problema
 
-# VARIABLES A OPTIMIZAR:
-- Tiempo de vuelta
-- Velocidad punta 
-- Estabilidad en curva
+Cada circuito exige un equilibrio diferente entre carga aerodinámica, velocidad punta, estabilidad y comportamiento en curvas. Ajustar manualmente estas variables puede ser lento y propenso a errores.
+
+## Solución
+
+El proyecto utiliza un algoritmo genético para explorar configuraciones de un monoplaza y buscar combinaciones que reduzcan el tiempo de vuelta, considerando variables aerodinámicas y mecánicas.
+
+### Variables de decisión
+
+- ángulo del alerón delantero;
+- ángulo del alerón trasero;
+- dureza de la suspensión;
+- relación de marchas.
+
+### Objetivos de optimización
+
+- reducir el tiempo de vuelta;
+- mejorar la velocidad punta;
+- mantener la estabilidad en curva;
+- respetar restricciones físicas de fricción y resistencia aerodinámica.
+
+## Estructura
+
+- `backend/`: lógica de optimización y simulación;
+- `frontend/`: interfaz para visualizar configuraciones y resultados;
+- `src/`: implementación principal;
+- `imagenes/`: recursos visuales;
+- `evolucion_setups_f1.csv`: datos de configuraciones evaluadas.
+
+## Ejecución local
+
+Revisa los archivos `backend/`, `frontend/` y `src/` para identificar el flujo de ejecución correspondiente a cada parte del sistema. Las dependencias y comandos pueden variar entre los componentes.
+
+## Nota sobre el origen
+
+Este repositorio parte de una base forked y contiene trabajo de adaptación y mejora. La atribución del proyecto original se conserva en GitHub.
+
+## Estado
+
+Proyecto experimental de optimización y simulación.
+
+## Autor
+
+Eduardo Uriel Chavez Diaz — [@Edward-uri](https://github.com/Edward-uri)
